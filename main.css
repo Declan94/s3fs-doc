@@ -1,0 +1,51 @@
+pre {
+    font-family: "Courier 10 Pitch", Courier, monospace;
+    font-size: 95%;
+    line-height: 120%;
+    white-space: pre;
+    white-space: pre-wrap;
+    white-space: -moz-pre-wrap;
+    white-space: -o-pre-wrap;
+}
+
+code {
+    font-family: Monaco, Consolas, "Andale Mono", "DejaVu Sans Mono", monospace;
+    font-size: 95%;
+    line-height: 120%;
+    white-space: pre;
+    white-space: pre-wrap;
+    white-space: -moz-pre-wrap;
+    white-space: -o-pre-wrap;
+    color: cornflowerblue;
+    background: #faf8f0;
+}
+
+#content code {
+    display: block;
+    padding: 0.5em 1em;
+    border: 1px solid #bebab0;
+}
+
+div.section {
+    margin: 30px 20px;
+    padding: 10px;
+}
+
+div.func {
+    margin: 20px 10px;
+}
+
+div.func .name {
+    font-size: 1.2em;
+    font-style: italic;
+}
+
+div.func .desc, .remark {
+    margin-top: 5px;
+    padding-left: 20px;
+}
+
+.remark {
+    font-style: italic;
+    color: dimgray;
+}
