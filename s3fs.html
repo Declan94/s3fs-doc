@@ -40,7 +40,7 @@
             <li>检查父目录的执行权限和写入权限 <a href="#check_parent_object_access"><code>check_parent_object_access(path, W_OK | X_OK)</code></a></li>
             <li>检查目录是否已经存在 <a><code>check_object_access(path, F_OK, NULL)</code></a></li>
             <li><a href="#create_directory_object"><code>create_directory_object(path, mode, time(NULL), pcxt->uid, pcxt->gid)</code></a></li>
-            <li><a><code>StatCache::getStatCacheData()->DelStat(path)</code></a></li>
+            <li>删除path对应的Stat缓存(为了删除no obj cache?)<a><code>StatCache::getStatCacheData()->DelStat(path)</code></a></li>
         </ul>
     </div>
     <div class="func">
@@ -77,10 +77,67 @@
             </li>
         </ul>
     </div>
+    <div class="func">
+        <div class="name"><code>static int s3fs_chmod(const char* path, mode_t mode)</code></div>
+        <div class="desc">
+            fuse接口函数, 修改文件或目录的mode属性
+        </div>
+        <ul class="impl">
+            <li>检查是否挂载点根目录, 挂载点根目录不可chmod</li>
+            <li>检查对父目录的执行权限<a href="#check_parent_object_access"><code>check_parent_object_access(path, X_OK)</code></a> </li>
+            <li>检查对象属主<a href="#check_object_owner"><code>check_object_owner(path, &stbuf)</code></a> </li>
+
+        </ul>
+    </div>
 </div>
 
 <div class="section">
     <h3>辅助函数</h3>
+    <div class="func" id="get_object_attribute">
+        <div class="name"><code>static int get_object_attribute(const char* path, struct stat* pstbuf, headers_t* pmeta, bool overcheck, bool* pisforce, bool add_no_truncate_cache)</code></div>
+        <div class="desc">
+            获取对象的attrs <br/>
+            <code>path</code> 对象path <br/>
+            <code>pstbuf</code> attrs结果缓存指针, attrs结果从这里返回 <br/>
+            <code>pmeta</code> default NULL, 如果非空, 用于返回obejct的meta信息 <br/>
+            <code>overcheck</code> default true, 是否检查"dir/", "dir_$folders$" 和 no dir object 形式 <br/>
+            <code>pisforce</code> default NULL <br/>
+            <code>add_no_truncate_cache</code> default false, 若为true, 强制加入缓存, 且只在显式删除时会被删除
+        </div>
+        <ul class="impl">
+            <li>对于挂载点根目录单独处理</li>
+            <li>
+                检查Stat缓存, 如果命中则返回. <a><code>StatCache::getStatCacheData()->GetStat(strpath, pstat, pheader, overcheck, pisforce)</code></a> <br/>
+                返回之前调用了<a><code>StatCache::getStatCacheData()->ChangeNoTruncateFlag(strpath, add_no_truncate_cache)</code></a>
+            </li>
+            <li>检查Stat缓存中是否标记了此路径no object<a><code>StatCache::getStatCacheData()->IsNoObjectCache(strpath)</code></a></li>
+            <li>发起请求获取object的meta信息<a><code>s3fscurl.HeadRequest(strpath.c_str(), (*pheader))</code></a></li>
+            <li>如果overcheck被设置且上述请求失败, 检查是否为各种形式的目录</li>
+            <li>各种check之后依然不成功, 说明失败, 加入StatCache的no object cache并返回. <a><code>StatCache::getStatCacheData()->AddNoObjectCache(strpath)</code></a></li>
+            <li>将meta信息转换成文件attrs信息, 根据add_no_truncate_cache参数和CacheSize的情况决定是否缓存</li>
+        </ul>
+        <div class="remark">
+            关于overcheck的分支选择有点奇怪, 判断条件是overcheck && 0 != result, result是REST接口请求header信息的结果. <br/>
+            这个分支的else从句检查了no dir objecct形式的情况, 这样如果overcheck为false, 而之前的请求没成功(0 != result), 也会进行no dir object形式的检查. <br/>
+            不过因为<code>is_need_check_detail(*pheader)</code>在pheader size为0的时候会直接返回false, 所以没有什么影响. 但是这样的写法非常confusing, 不利于阅读和合作开发. <br/>
+        </div>
+        <div class="remark">
+            代码复杂化主要都是因为要兼容处理之前不同版本的目录形式, 从代码中大概看出有几种形式的目录存储方案:
+            <ul>
+                <li>目录存储为"dir/" (当前最新版本的存储方案)</li>
+                <li>目录存储为"dir"</li>
+                <li>目录存储为"dir_$folder$</li>
+                <li>目录本身不对应object (真是非常增加实现复杂度的设计)</li>
+            </ul>
+        </div>
+        <div class="remark">
+            关于add_no_truncate_cache的Note: <br/>
+            When add_no_truncate_cache is true, the stats is always cached. <br/>
+            This cached stats is only removed by DelStat(). <br/>
+            This is necessary for the case to access the attribute of opened file. <br/>
+            (ex. getxattr() is called while writing to the opened file.) <br/>
+        </div>
+    </div>
     <div class="func" id="create_directory_object">
         <div class="name"><code>static int create_directory_object(const char* path, mode_t mode, time_t time, uid_t uid, gid_t gid)</code></div>
         <div class="desc">
@@ -121,6 +178,20 @@
             <li>根据获取的attr检查access</li>
         </ul>
     </div>
+    <div class="func" id="check_object_owner">
+        <div class="name"><code>static int check_object_owner(const char* path, struct stat* pstbuf)</code></div>
+        <div class="desc">
+            检查对象属主 <br/>
+            <code>path</code> 对象路径 <br/>
+            <code>pstbuf</code> 如果非空则将对象的attrs存入该指针位置 <br/>
+        </div>
+        <ul class="impl">
+            <li>获取对象的attrs<a href="#get_object_attribute"><code>get_object_attribute(path, pst)</code></cod></a></li>
+            <li>检查当前用户是否root用户(uid为0), root用户允许所有accessing, 返回0</li>
+            <li>检查当前用户是否为参数指定的s3fs_uid, 如果是返回0</li>
+            <li>检查当前用户uid是否和对象属主用户uid一致</li>
+        </ul>
+    </div>
     <div class="func" id="rename_directory">
         <div class="name"><code>static int rename_directory(const char* from, const char* to)</code></div>
         <div class="desc">
@@ -134,6 +205,32 @@
         <div class="remark">
             这个函数很复杂, 对于前面列出所有要移动的目录和文件部分还没太看明白. 后面对于目录的操作是新建新的目录, 而对于文件的重命名, 底层看是调用了REST上的REPLACE接口. <br/>
             相较于Linux的文件系统, 由于需要对所有的子目录和文件操作, 效率低很多.
+        </div>
+    </div>
+    <div class="func" id="list_bucket">
+        <div class="name"><code>static int list_bucket(const char* path, S3ObjList& head, const char* delimiter, bool check_content_only)</code> </div>
+        <div class="desc">
+            列出path目录下的所有对象 <br/>
+            <code>path</code> <br/>
+            <code>head</code>S3ObjList对象, 用于返回object列表<br/>
+            <code>delimiter</code><br/>
+            <code>check_content_only</code>default false 仅仅用于检查path下是否有child object. (仅返回两个对象即可, 因为如果有child object, expect "dir/"和"dir/child")<br/>
+        </div>
+        <ul class="impl">
+            <li>构造请求的query参数
+                <ul>
+                    <li>delimiter=[delimiter]</li>
+                    <li>prefix=[path去掉开头的/, 末尾以/结束]</li>
+                    <li>max-keys=[check_content_only ? 2 : 1000]</li>
+                    <li>利用marker参数分页</li>
+                </ul>
+            </li>
+            <li>发起请求<a><code>s3fscurl.ListBucketRequest(path, each_query.c_str())</code></a></li>
+            <li>解析返回的xml, 将object加入列表, 检查是否truncated, 如果truncated获取next_marker作为marker参数重复之前的步骤继续获取</li>
+        </ul>
+        <div class="remark">
+            对<code>s3fscurl.ListBucketRequest(path, each_query.c_str())</code>的调用, 其实path这个参数在函数中并没有用到, 其实已经放到query信息中了.
+            ListBucketRequest函数中在构造Resource Url的时候用的path是空字符串.
         </div>
     </div>
 
