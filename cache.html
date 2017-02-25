@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>S3fs Doc - s3fs.h/cpp</title>
+
+    <link type="text/css" href="bootstrap.min.css" rel="stylesheet" />
+    <link type="text/css" href="main.css" rel="stylesheet" />
+</head>
+<body>
+<div class="container-fluid">
+    <h2 class="top">S3fs Doc - cache.h/cpp</h2>
+
+    <div class="section">
+        <h3>StatCache</h3>
+
+        <div class="func" id="DelStat">
+            <div class="name"><code>bool StatCache::DelStat(const char* key)</code></div>
+            <div class="desc">
+                删除<code>key</code>对应的stat缓存 <br/>
+            </div>
+            <ul class="impl">
+                <li>查找key对应的缓存, delete, erase字典对应key</li>
+                <li>如果key以'/'结尾, 去掉'/'再执行一次删除</li>
+                <li>如果key不以'/'结尾, 加上'/'再执行一次删除</li>
+            </ul>
+        </div>
+
+        <div class="func" id="GetStat">
+            <div class="name"><code>bool StatCache::GetStat(std::string& key, struct stat* pst, headers_t* meta, bool overcheck, const char* petag, bool* pisforce)</code></div>
+            <div class="desc">
+                获取stat缓存
+            </div>
+            <ul class="impl">
+
+            </ul>
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>
