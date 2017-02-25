@@ -26,7 +26,7 @@
                 </li>
                 <li>检查文件是否存在 <a><code>check_object_access(path, F_OK, stbuf)</code></a></li>
                 <li>通过FdManager单例打开一个FdEntity实例<a><code>ent = FdManager::get()->ExistOpen(path)</code></a></li>
-                <li>通过FdEntity获取文件的stat信息(struct stat)<a><code>ent->GetStats(tmpstbuf)</code></a></li>
+                <li>通过FdEntity获取文件的attributes(struct stat)信息(struct stat)<a><code>ent->GetStats(tmpstbuf)</code></a></li>
                 <li>根据获取到的信息填充stbuf (只用了st_size信息, st_blksize填充4096, st_blocks填充st_size/512+1)</li>
                 <li>关闭FdEntity实例</li>
             </ul>
@@ -93,8 +93,23 @@
             <ul class="impl">
                 <li>检查是否挂载点根目录, 挂载点根目录不可chmod</li>
                 <li>检查对父目录的执行权限<a href="#check_parent_object_access"><code>check_parent_object_access(path, X_OK)</code></a></li>
-                <li>检查对象属主<a href="#check_object_owner"><code>check_object_owner(path, &stbuf)</code></a></li>
-
+                <li>检查对象属主同时获得文件或目录的attributes<a href="#check_object_owner"><code>check_object_owner(path, &stbuf)</code></a></li>
+                <li>根据attributes判断是目录还是文件</li>
+                <li>对于目录做如下处理
+                    <ul>
+                        <li>检查目录的类型(不同版本存储形式不同)<a href="#chk_dir_object_type"><code>chk_dir_object_type(path, newpath, strpath, nowcache, &meta, &nDirType)</code></a></li>
+                        <li>如果是旧版本的目录, 删除之前的目录object(no obj形式除外), 再建立新形式的目录object</li>
+                    </ul>
+                </li>
+                <li>通过接口请求修改object的meta信息<a href="#put_headers"><code>put_headers(strpath.c_str(), meta, true)</code></a></li>
+                <li>删除stat缓存<a href="cache.html#DelStat"><code>StatCache::getStatCacheData()->DelStat(nowcache)</code></a></li>
+                <li>如果文件已经打开, 需要修改对应的FdEntity的mode
+                    <ul>
+                        <li><a><code>ent = FdManager::get()->ExistOpen(path)</code></a></li>
+                        <li><a><code>ent->SetMode(mode)</code></a></li>
+                        <li><a><code>FdManager::get()->Close(ent)</code></a></li>
+                    </ul>
+                </li>
             </ul>
         </div>
     </div>
@@ -105,7 +120,7 @@
         <div class="func" id="get_object_attribute">
             <div class="name"><code>static int get_object_attribute(const char* path, struct stat* pstbuf, headers_t* pmeta, bool overcheck, bool* pisforce, bool add_no_truncate_cache)</code></div>
             <div class="desc">
-                获取对象的stat <br/>
+                获取对象的attributes(struct stat) <br/>
                 <code>path</code> 对象path <br/>
                 <code>pstbuf</code> stat结果缓存指针, stat结果从这里返回 <br/>
                 <code>pmeta</code> default NULL, 如果非空, 用于返回obejct的meta信息 <br/>
@@ -196,10 +211,10 @@
             <div class="desc">
                 检查当前用户是否有对象属主权限, 有权限则返回0, 否则返回非0 <br/>
                 <code>path</code> 对象路径 <br/>
-                <code>pstbuf</code> 如果非空则将对象的stat存入该指针位置 <br/>
+                <code>pstbuf</code> 如果非空则将对象的attributes(struct stat)存入该指针位置 <br/>
             </div>
             <ul class="impl">
-                <li>获取对象的stat<a href="#get_object_attribute"><code>get_object_attribute(path, pst)</code></cod></a></li>
+                <li>获取对象的attributes(struct stat)<a href="#get_object_attribute"><code>get_object_attribute(path, pst)</code></cod></a></li>
                 <li>检查当前用户是否root用户(uid为0), root用户允许所有accessing, 返回0</li>
                 <li>检查当前用户是否为参数指定的s3fs_uid, 如果是返回0</li>
                 <li>检查当前用户uid是否和对象属主用户uid一致, 一致返回0</li>
