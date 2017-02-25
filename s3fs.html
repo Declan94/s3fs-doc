@@ -57,8 +57,7 @@
                 <code>path</code> 目录路径 <br/>
             </div>
             <ul class="impl">
-                <li>检查父目录的执行权限和写入权限 <a href="#check_parent_object_access"><code>check_parent_object_access(path, W_OK |
-                    X_OK)</code></a></li>
+                <li>检查父目录的执行权限和写入权限 <a href="#check_parent_object_access"><code>check_parent_object_access(path, W_OK | X_OK)</code></a></li>
                 <li>检查目录为空 <a><code>directory_empty(path) != 0</code></a></li>
                 <li>使用AWS S3的REST接口删除object<a><code>s3fscurl.DeleteRequest(strpath.c_str())</code></a></li>
                 <li><a href="cache.html#DelStat"><code>StatCache::getStatCacheData()->DelStat(path)</code></a></li>
@@ -80,10 +79,8 @@
                     根据节点类型及大小分别做不同的操作:
                     <ul>
                         <li>如果是目录, <a href="#rename_directory"><code>rename_directory(from, to)</code></a></li>
-                        <li>否则 如果没有设置nomultipart参数且大小超过了single_copy_limit, <code>rename_large_object(from, to)</code>
-                        </li>
-                        <li>否则 根据nocopyapi和norenameapi参数的设置选择<code>rename_object(from, to)</code>或者<code>rename_object_nocopy(from,
-                            to)</code></li>
+                        <li>否则 如果没有设置nomultipart参数且大小超过了single_copy_limit, <code>rename_large_object(from, to)</code></li>
+                        <li>否则 根据nocopyapi和norenameapi参数的设置选择<code>rename_object(from, to)</code>或者<code>rename_object_nocopy(from, to)</code></li>
                     </ul>
                 </li>
             </ul>
@@ -95,8 +92,7 @@
             </div>
             <ul class="impl">
                 <li>检查是否挂载点根目录, 挂载点根目录不可chmod</li>
-                <li>检查对父目录的执行权限<a href="#check_parent_object_access"><code>check_parent_object_access(path, X_OK)</code></a>
-                </li>
+                <li>检查对父目录的执行权限<a href="#check_parent_object_access"><code>check_parent_object_access(path, X_OK)</code></a></li>
                 <li>检查对象属主<a href="#check_object_owner"><code>check_object_owner(path, &stbuf)</code></a></li>
 
             </ul>
@@ -165,8 +161,7 @@
                 <code>gid</code> 创建用户组gid <br/>
             </div>
             <ul class="impl">
-                <li>设置请求的meta信息 Content-Type: application/x-directory, 另外设置x-amz-meta-uid, x-amz-meta-gid,
-                    x-amz-meta-mode, x-amz-meta-mtime等meta属性
+                <li>设置请求的meta信息 Content-Type: application/x-directory, 另外设置x-amz-meta-uid, x-amz-meta-gid, x-amz-meta-mode, x-amz-meta-mtime等meta属性
                 </li>
                 <li>使用AWS S3的REST接口发起Put请求上传目录Object<a><code>s3fscurl.PutRequest(tpath.c_str(), meta, -1)</code></a>
                 </li>
@@ -182,15 +177,13 @@
             </div>
             <ul class="impl">
                 <li>对于mount point特殊处理, 返回0(成功)</li>
-                <li>如果mask中包含X_OK, 依次向上遍历每一级父目录, 检查X_OK的access权限, 如果权限不足则返回失败结果.
-                    <a href="#check_object_access"><code>check_object_access(parent.c_str(), X_OK, NULL)</code></a></li>
-                <li>如果mask中除了X_OK还包含其他位, 检查上一级目录对应mask的access
-                    <a href="#check_object_access"><code>check_object_access(parent.c_str(), mask, NULL)</code></a></li>
+                <li>如果mask中包含X_OK, 依次向上遍历每一级父目录, 检查X_OK的access权限, 如果权限不足则返回失败结果. <a href="#check_object_access"><code>check_object_access(parent.c_str(), X_OK, NULL)</code></a></li>
+                <li>如果mask中除了X_OK还包含其他位, 检查上一级目录对应mask的access <a href="#check_object_access"><code>check_object_access(parent.c_str(), mask, NULL)</code></a></li>
             </ul>
         </div>
         <div class="func" id="check_object_access">
             <div class="name"><code>static int check_object_access(const char* path, int mask, struct stat*
-                pstbuf)</code></div>
+            pstbuf)</code></div>
             <div class="desc">
                 检查用户对于文件的access
             </div>
@@ -207,8 +200,7 @@
                 <code>pstbuf</code> 如果非空则将对象的stat存入该指针位置 <br/>
             </div>
             <ul class="impl">
-                <li>获取对象的stat<a href="#get_object_attribute"><code>get_object_attribute(path, pst)</code></cod></a>
-                </li>
+                <li>获取对象的stat<a href="#get_object_attribute"><code>get_object_attribute(path, pst)</code></cod></a></li>
                 <li>检查当前用户是否root用户(uid为0), root用户允许所有accessing, 返回0</li>
                 <li>检查当前用户是否为参数指定的s3fs_uid, 如果是返回0</li>
                 <li>检查当前用户uid是否和对象属主用户uid一致, 一致返回0</li>
@@ -222,7 +214,7 @@
             <ul class="impl">
                 <li>列出所有要移动的目录和文件, 计算原始路径和移动后的路径</li>
                 <li>对于目录, <a><code>clone_directory_object(mn_cur->old_path, mn_cur->new_path)</code></a></li>
-                <li>对于文件, <a><code>rename_object(mn_cur->old_path, mn_cur->new_path)</code></a>或者<a><code>rename_object_nocopy(mn_cur->old_path, mn_cur->new_path)</code></a></li>
+                <li>对于文件,<a><code>rename_object(mn_cur->old_path, mn_cur->new_path)</code></a>或者<a><code>rename_object_nocopy(mn_cur->old_path, mn_cur->new_path)</code></a></li>
             </ul>
             <div class="remark">
                 这个函数很复杂, 对于前面列出所有要移动的目录和文件部分还没太看明白. 后面对于目录的操作是新建新的目录, 而对于文件的重命名, 底层看是调用了REST上的REPLACE接口. <br/>
