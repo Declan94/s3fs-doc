@@ -7,6 +7,7 @@
     <link type="text/css" href="bootstrap.min.css" rel="stylesheet"/>
     <link type="text/css" href="main.css" rel="stylesheet"/>
 </head>
+
 <body>
 <div class="container-fluid">
     <h2 class="top">S3fs Doc - s3fs.h/cpp</h2>
@@ -23,9 +24,21 @@
                 The return value of this function is available to all file operations in the private_data field of fuse_context. It is also passed as a parameter to the destroy() method.
             </div>
             <ul class="impl">
-                
+                <li>如果参数中指定了删除缓存, 则删除缓存目录.
+                    <ul>
+                        <li><a><code>CacheFileStat::DeleteCacheFileStatDirectory()</code></a></li>
+                        <li><a><code>FdManager::DeleteCacheDirectory()</code></a></li>
+                    </ul>
+                </li>
+                <li>初始化ssl<a><code>s3fs_init_global_ssl()</code></a></li>
+                <li>初始化curl<a><code>S3fsCurl::InitS3fsCurl("/etc/mime.types")</code></a></li>
+                <li>加载IAM角色名<a><code>s3fscurl.LoadIAMRoleFromMetaData()</code></a></li>
+                <li>创建bucket<a href="#do_create_bucket"><code>do_create_bucket()</code></a></li>
+                <li>如果非Public Bucket, 检查Bucket连接. <a href="#s3fs_check_service"><code>s3fs_check_service()</code></a></li>
+                <li>如果文件系统支持, 设置<code>FUSE_CAP_ATOMIC_O_TRUNC</code>标志</li>
             </ul>
         </div>
+
         <div class="func">
             <div class="name"><code>static int s3fs_getattr(const char* path, struct stat* stbuf)</code></div>
             <div class="desc">
@@ -47,6 +60,7 @@
                 -_-||
             </div>
         </div>
+
         <div class="func">
             <div class="name"><code>static int s3fs_mkdir(const char* path, mode_t mode)</code></div>
             <div class="desc">
@@ -62,6 +76,7 @@
                 </li>
             </ul>
         </div>
+
         <div class="func">
             <div class="name"><code>static int s3fs_rmdir(const char* path)</code></div>
             <div class="desc">
@@ -77,6 +92,7 @@
                 <li>还有对其他版本S3 clients提供兼容性支持的代码</li>
             </ul>
         </div>
+
         <div class="func">
             <div class="name"><code>static int s3fs_rename(const char* from, const char* to)</code></div>
             <div class="desc">
@@ -97,6 +113,7 @@
                 </li>
             </ul>
         </div>
+
         <div class="func">
             <div class="name"><code>static int s3fs_chmod(const char* path, mode_t mode)</code></div>
             <div class="desc">
@@ -126,8 +143,41 @@
         </div>
     </div>
 
+    <!-- ***************************************************************************************************************************** -->
     <div class="section">
         <h3>辅助函数</h3>
+
+        <div class="func" id="s3fs_check_service">
+            <div class="name"><code>static int s3fs_check_service(void)</code></div>
+            <div class="desc">
+                检查service连接
+            </div>
+            <ul class="impl">
+                <li>如果设置了IAM role, 检查IAM Credentials. <a><code>S3fsCurl::CheckIAMCredentialUpdate()</code></a></li>
+                <li>检查连接bucket. <a><code>s3fscurl.CheckBucket()</code></a></li>
+                <li>如果出错且状态码为400, 且没有指定endpoint, 自动检查是否是错误的endpoint导致</li>
+                <li>如果依然出错且状态码为400或403, 尝试signature v2</li>
+                <li>如果依然出错检查状态码并返回失败</li>
+                <li>检查远端的挂载点存在且为目录<a><code>remote_mountpath_exists(mount_prefix.c_str()) != 0)</code></a></li>
+            </ul>
+            <div class="remark">
+                最后一步看起来似乎是想支持挂载某个bucket下的子目录, 但是目前还没有支持. <br/>
+                <code>remote_mountpath_exists</code>函数中检查的是根目录'/', 没有用传进去的路径. <br/>
+                而<code>mount_prefix</code>初始化为空字符串, 也没有参数可以改变其设置.
+            </div>
+        </div>
+
+        <div class="func" id="do_create_bucket">
+            <div class="name"><code>static int do_create_bucket(void)</code></div>
+            <div class="desc">
+                创建bucket
+            </div>
+            <ul class="impl">
+                <li>创建一个临时文件tmpfd(文件句柄)写入CreateBucketConfiguration. (us-east-1 endpoint除外) us-east-1有什么特别之处?</li>
+                <li>发起创建请求<a><code>s3fscurl.PutRequest("/", meta, tmpfd)</code></a></li>
+                <li>如果出错400或403, 用signature v2重试一遍</li>
+            </ul>
+        </div>
 
         <div class="func" id="get_object_attribute">
             <div class="name"><code>static int get_object_attribute(const char* path, struct stat* pstbuf, headers_t* pmeta, bool overcheck, bool* pisforce, bool add_no_truncate_cache)</code></div>
@@ -177,6 +227,7 @@
                 (ex. getxattr() is called while writing to the opened file.) <br/>
             </div>
         </div>
+
         <div class="func" id="create_directory_object">
             <div class="name"><code>static int create_directory_object(const char* path, mode_t mode, time_t time, uid_t uid, gid_t gid)</code></div>
             <div class="desc">
@@ -194,6 +245,7 @@
                 </li>
             </ul>
         </div>
+
         <div class="func" id="check_parent_object_access">
             <div class="name"><code>static int check_parent_object_access(const char* path, int mask)</code></div>
             <div class="desc">
@@ -208,6 +260,7 @@
                 <li>如果mask中除了X_OK还包含其他位, 检查上一级目录对应mask的access <a href="#check_object_access"><code>check_object_access(parent.c_str(), mask, NULL)</code></a></li>
             </ul>
         </div>
+
         <div class="func" id="check_object_access">
             <div class="name"><code>static int check_object_access(const char* path, int mask, struct stat* pstbuf)</code></div>
             <div class="desc">
@@ -218,6 +271,7 @@
                 <li>根据获取的attr检查access</li>
             </ul>
         </div>
+
         <div class="func" id="check_object_owner">
             <div class="name"><code>static int check_object_owner(const char* path, struct stat* pstbuf)</code></div>
             <div class="desc">
@@ -232,6 +286,7 @@
                 <li>检查当前用户uid是否和对象属主用户uid一致, 一致返回0</li>
             </ul>
         </div>
+
         <div class="func" id="rename_directory">
             <div class="name"><code>static int rename_directory(const char* from, const char* to)</code></div>
             <div class="desc">
@@ -247,6 +302,7 @@
                 相较于Linux的文件系统, 由于需要对所有的子目录和文件操作, 效率低很多.
             </div>
         </div>
+
         <div class="func" id="list_bucket">
             <div class="name"><code>static int list_bucket(const char* path, S3ObjList& head, const char* delimiter, bool check_content_only)</code></div>
             <div class="desc">
@@ -275,6 +331,7 @@
                 ListBucketRequest函数中在构造Resource Url的时候用的path是空字符串.
             </div>
         </div>
+
         <div class="func" id="chk_dir_object_type">
             <div class="name"><code>static int chk_dir_object_type(const char* path, string& newpath, string& nowpath, string& nowcache, headers_t* pmeta, int* pDirType)</code></div>
             <div class="remark">
@@ -304,7 +361,6 @@
                 #define	IS_RMTYPEDIR(type)  (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type)</code> <br/>
                 最后两个宏定义分别表示 "是否需要更新目录object的类型", "更新时是否需要删除旧的目录object"
             </div>
-
         </div>
 
         <div class="func" id="put_headers">
