@@ -22,6 +22,7 @@
                 Initialize the filesystem. This function can often be left unimplemented, but it can be a handy way to perform one-time setup such as allocating variable-sized data structures or initializing a new filesystem.
                 The fuse_conn_info structure gives information about what features are supported by FUSE, and can be used to request certain capabilities.
                 The return value of this function is available to all file operations in the private_data field of fuse_context. It is also passed as a parameter to the destroy() method.
+                <a href="#ref1">[1]</a>
             </div>
             <ul class="impl">
                 <li>如果参数中指定了删除缓存, 则删除缓存目录.
@@ -45,6 +46,11 @@
                 fuse接口函数, 获取文件的attr <br/>
                 <code>path</code> 文件的路径 <br/>
                 <code>stbuf</code> 返回文件信息的stat结构体 <br/>
+                Return file attributes. The "stat" structure is described in detail in the stat(2) manual page.
+                For the given pathname, this should fill in the elements of the "stat" structure.
+                If a field is meaningless or semi-meaningless (e.g., st_ino) then it should be set to 0 or given a "reasonable" value.
+                This call is pretty much required for a usable filesystem.
+                <a href="#ref1">[1]</a>
             </div>
             <ul class="impl">
                 <li>检查父目录的执行权限 <a href="#check_parent_object_access"><code>check_parent_object_access(path, X_OK)</code></a>
@@ -67,6 +73,9 @@
                 fuse接口函数, 创建一个目录 <br/>
                 <code>path</code> 目录路径 <br/>
                 <code>mode</code> 目录的permissions信息 <br/>
+                Create a directory with the given name. The directory permissions are encoded in mode.
+                See mkdir(2) for details. This function is needed for any reasonable read/write filesystem.
+                <a href="#ref1">[1]</a>
             </div>
             <ul class="impl">
                 <li>检查父目录的执行权限和写入权限 <a href="#check_parent_object_access"><code>check_parent_object_access(path, W_OK | X_OK)</code></a></li>
@@ -82,6 +91,8 @@
             <div class="desc">
                 fuse接口函数, 删除指定目录 <br/>
                 <code>path</code> 目录路径 <br/>
+                Remove the given directory. This should succeed only if the directory is empty (except for "." and ".."). See rmdir(2) for details.
+                <a href="#ref1">[1]</a>
             </div>
             <ul class="impl">
                 <li>检查父目录的执行权限和写入权限 <a href="#check_parent_object_access"><code>check_parent_object_access(path, W_OK | X_OK)</code></a></li>
@@ -96,7 +107,11 @@
         <div class="func">
             <div class="name"><code>static int s3fs_rename(const char* from, const char* to)</code></div>
             <div class="desc">
-                fuse接口函数, 移动(重命名)文件或目录
+                fuse接口函数, 移动(重命名)文件或目录 <br/>
+                Rename the file, directory, or other object "from" to the target "to".
+                Note that the source and target don't have to be in the same directory, so it may be necessary to move the source to an entirely new directory.
+                See rename(2) for full details.
+                <a href="#ref1">[1]</a>
             </div>
             <ul class="impl">
                 <li>检查对to的父目录的执行和写入权限<a href="#check_parent_object_access"><code>check_parent_object_access(to, W_OK | X_OK)</code></a></li>
@@ -117,7 +132,10 @@
         <div class="func">
             <div class="name"><code>static int s3fs_chmod(const char* path, mode_t mode)</code></div>
             <div class="desc">
-                fuse接口函数, 修改文件或目录的mode属性
+                fuse接口函数, 修改文件或目录的mode属性 <br/>
+                Change the mode (permissions) of the given object to the given new permissions.
+                Only the permissions bits of mode should be examined. See chmod(2) for details.
+                <a href="#ref1">[1]</a>
             </div>
             <ul class="impl">
                 <li>检查是否挂载点根目录, 挂载点根目录不可chmod</li>
@@ -385,6 +403,12 @@
         </div>
 
     </div>
+
+    <div class="section">
+        <h4>References</h4>
+        <a href="https://www.cs.hmc.edu/~geoff/classes/hmc.cs135.201109/homework/fuse/fuse_doc.html" id="ref1">[1] https://www.cs.hmc.edu/~geoff/classes/hmc.cs135.201109/homework/fuse/fuse_doc.html</a>
+    </div>
+
 </div>
 </body>
 </html>
