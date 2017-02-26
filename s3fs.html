@@ -369,14 +369,14 @@
             <div class="remark">
                 关于pDirType有以下宏定义:
                 <code>
-                #define	DIRTYPE_UNKNOWN    -1
-                #define	DIRTYPE_NEW         0
-                #define	DIRTYPE_OLD         1
-                #define	DIRTYPE_FOLDER      2
-                #define	DIRTYPE_NOOBJ       3
+#define	DIRTYPE_UNKNOWN    -1
+#define	DIRTYPE_NEW         0
+#define	DIRTYPE_OLD         1
+#define	DIRTYPE_FOLDER      2
+#define	DIRTYPE_NOOBJ       3
 
-                #define	IS_REPLACEDIR(type) (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type || DIRTYPE_NOOBJ == type)
-                #define	IS_RMTYPEDIR(type)  (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type)</code> <br/>
+#define	IS_REPLACEDIR(type) (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type || DIRTYPE_NOOBJ == type)
+#define	IS_RMTYPEDIR(type)  (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type)</code> <br/>
                 最后两个宏定义分别表示 "是否需要更新目录object的类型", "更新时是否需要删除旧的目录object"
             </div>
         </div>
