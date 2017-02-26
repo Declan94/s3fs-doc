@@ -15,6 +15,18 @@
         <h3>fuse_operations结构体中的各个函数</h3>
 
         <div class="func">
+            <div class="name"><code>static void* s3fs_init(struct fuse_conn_info* conn)</code></div>
+            <div class="desc">
+                fuse接口函数, 进行初始化操作.<br/>
+                Initialize the filesystem. This function can often be left unimplemented, but it can be a handy way to perform one-time setup such as allocating variable-sized data structures or initializing a new filesystem.
+                The fuse_conn_info structure gives information about what features are supported by FUSE, and can be used to request certain capabilities.
+                The return value of this function is available to all file operations in the private_data field of fuse_context. It is also passed as a parameter to the destroy() method.
+            </div>
+            <ul class="impl">
+                
+            </ul>
+        </div>
+        <div class="func">
             <div class="name"><code>static int s3fs_getattr(const char* path, struct stat* stbuf)</code></div>
             <div class="desc">
                 fuse接口函数, 获取文件的attr <br/>
@@ -261,6 +273,58 @@
                 对<code>s3fscurl.ListBucketRequest(path, each_query.c_str())</code>的调用, 其实path这个参数在函数中并没有用到,
                 其实已经放到query信息中了.
                 ListBucketRequest函数中在构造Resource Url的时候用的path是空字符串.
+            </div>
+        </div>
+        <div class="func" id="chk_dir_object_type">
+            <div class="name"><code>static int chk_dir_object_type(const char* path, string& newpath, string& nowpath, string& nowcache, headers_t* pmeta, int* pDirType)</code></div>
+            <div class="remark">
+                comment for this function: <br/>
+                // [Detail] <br/>
+                // This function is complicated for checking directory object type. <br/>
+                // Arguments is used for deleting cache/path, and remake directory object. <br/>
+                // Please see the codes which calls this function. <br/>
+                // <br/>
+                // path:      target path <br/>
+                // newpath:   should be object path for making/putting/getting after checking <br/>
+                // nowpath:   now object name for deleting after checking <br/>
+                // nowcache:  now cache path for deleting after checking <br/>
+                // pmeta:     headers map <br/>
+                // pDirType:  directory object type <br/>
+            </div>
+            <div class="remark">
+                关于pDirType有以下宏定义:
+                <code>
+                #define	DIRTYPE_UNKNOWN    -1
+                #define	DIRTYPE_NEW         0
+                #define	DIRTYPE_OLD         1
+                #define	DIRTYPE_FOLDER      2
+                #define	DIRTYPE_NOOBJ       3
+
+                #define	IS_REPLACEDIR(type) (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type || DIRTYPE_NOOBJ == type)
+                #define	IS_RMTYPEDIR(type)  (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type)</code> <br/>
+                最后两个宏定义分别表示 "是否需要更新目录object的类型", "更新时是否需要删除旧的目录object"
+            </div>
+
+        </div>
+
+        <div class="func" id="put_headers">
+            <div class="name"><code>static int put_headers(const char* path, headers_t& meta, bool is_copy)</code></div>
+            <div class="desc">
+                创建或修改s3 object meta信息 <br/>
+                <code>path</code>目标路径 <br/>
+                <code>meta</code>要创建或修改后的meta信息 <br/>
+                <code>is_copy</code>
+            </div>
+            <ul class="impl">
+                <li>获得path的file attributes (struct stat) <a href="#get_object_attribute"><code>get_object_attribute(path, &buf)</code></a></li>
+                <li>如果文件超过5G, 使用multipart interface. <a><code>s3fscurl.MultipartHeadRequest(path, buf.st_size, meta, is_copy)</code></a></li>
+                <li>如果文件不超过5G <a><code>s3fscurl.PutHeadRequest(path, meta, is_copy)</code></a></li>
+                <li>修改文件的access time 和 modify time <a><code>ent->SetMtime(mtime)</code></a></li>
+            </ul>
+            <div class="remark">
+                comment before calling "get_object_attribute" function: <br/>
+                // *** If there is not target object(a case of move command), <br/>
+                //     get_object_attribute() returns error with initializing buf. <br/>
             </div>
         </div>
 
