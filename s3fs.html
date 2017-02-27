@@ -382,29 +382,31 @@
             <div class="name"><code>static int chk_dir_object_type(const char* path, string& newpath, string& nowpath, string& nowcache, headers_t* pmeta, int* pDirType)</code></div>
             <div class="remark">
                 comment for this function: <br/>
-                // [Detail] <br/>
-                // This function is complicated for checking directory object type. <br/>
-                // Arguments is used for deleting cache/path, and remake directory object. <br/>
-                // Please see the codes which calls this function. <br/>
-                // <br/>
-                // path:      target path <br/>
-                // newpath:   should be object path for making/putting/getting after checking <br/>
-                // nowpath:   now object name for deleting after checking <br/>
-                // nowcache:  now cache path for deleting after checking <br/>
-                // pmeta:     headers map <br/>
-                // pDirType:  directory object type <br/>
+<pre>
+// [Detail]
+// This function is complicated for checking directory object type.
+// Arguments is used for deleting cache/path, and remake directory object.
+// Please see the codes which calls this function.
+//
+// path:      target path
+// newpath:   should be object path for making/putting/getting after checking
+// nowpath:   now object name for deleting after checking
+// nowcache:  now cache path for deleting after checking
+// pmeta:     headers map
+// pDirType:  directory object type
+</pre>
+
             </div>
             <div class="remark">
                 关于pDirType有以下宏定义:
-                <code>
-#define	DIRTYPE_UNKNOWN    -1
+<pre>#define	DIRTYPE_UNKNOWN    -1
 #define	DIRTYPE_NEW         0
 #define	DIRTYPE_OLD         1
 #define	DIRTYPE_FOLDER      2
 #define	DIRTYPE_NOOBJ       3
 
 #define	IS_REPLACEDIR(type) (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type || DIRTYPE_NOOBJ == type)
-#define	IS_RMTYPEDIR(type)  (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type)</code> <br/>
+#define	IS_RMTYPEDIR(type)  (DIRTYPE_OLD == type || DIRTYPE_FOLDER == type)</pre><br/>
                 最后两个宏定义分别表示 "是否需要更新目录object的类型", "更新时是否需要删除旧的目录object"
             </div>
         </div>
