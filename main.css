@@ -16,7 +16,15 @@ code {
     white-space: -moz-pre-wrap;
     white-space: -o-pre-wrap;
     color: cornflowerblue;
-    background: white;
+    background: inherit;
+}
+
+.name > code {
+
+}
+
+div.func .name > code {
+    /*color: black;*/
 }
 
 code.block {
