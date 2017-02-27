@@ -2,7 +2,6 @@ pre {
     font-family: "Courier 10 Pitch", Courier, monospace;
     font-size: 95%;
     line-height: 120%;
-    white-space: pre;
     white-space: pre-wrap;
     white-space: -moz-pre-wrap;
     white-space: -o-pre-wrap;
@@ -12,12 +11,16 @@ code {
     font-family: Monaco, Consolas, "Andale Mono", "DejaVu Sans Mono", monospace;
     font-size: 95%;
     line-height: 120%;
-    white-space: pre;
     white-space: pre-wrap;
     white-space: -moz-pre-wrap;
     white-space: -o-pre-wrap;
     color: cornflowerblue;
     background: #faf8f0;
+}
+
+code.block {
+    display: block;
+    width: auto;
 }
 
 #content code {
@@ -35,7 +38,7 @@ div.section {
     padding: 10px;
 }
 
-div.func {
+div.func, div.attrs {
     margin: 20px 10px;
     padding: 10px 20px 10px 10px;
     background-color: #fafafa;
@@ -43,12 +46,20 @@ div.func {
     border: solid 1px #f0f0f0;
 }
 
-div.func .name {
-    font-size: 1.2em;
-    font-style: italic;
+div.attr {
+
 }
 
-div.func .desc, .remark {
+.name {
+    font-style: italic;
+    margin: auto 6px;
+}
+
+div.func .name {
+    font-size: 1.2em;
+}
+
+.desc, .remark {
     margin-top: 5px;
     padding-left: 20px;
 }

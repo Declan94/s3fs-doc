@@ -41,6 +41,34 @@
         </div>
 
         <div class="func">
+            <div class="name">static int s3fs_open(const char* path, struct fuse_file_info* fi)</div>
+            <div class="desc">
+                fuse接口函数, 打开文件. <br/>
+                Open a file. If you aren't using file handles, this function should just check for existence and permissions and return either success or an error code.
+                If you use file handles, you should also allocate any necessary structures and set fi->fh.
+                In addition, fi has some other fields that an advanced filesystem might find useful; see the structure definition in fuse_common.h for very brief commentary.
+                <a href="#ref1">[1]</a>
+            </div>
+            <ul class="impl">
+                <li>删除文件的stat缓存, 以保证获得最新的stat信息. <a href="cache.html#DelStat"><code>StatCache::getStatCacheData()->DelStat(path);</code></a></li>
+                <li>检查权限
+                    <ul>
+                        <li>检查对上级目录的权限, <a href="#check_parent_object_access"><code>check_parent_object_access(path, X_OK)</code></a></li>
+                        <li>根据access mode决定对于权限检查的mask <code>mask = (O_RDONLY != (fi->flags & O_ACCMODE) ? W_OK : R_OK)</code></li>
+                        <li>检查对object的权限同时获取文件的attributes信息st<a href="#check_object_access"><code>check_object_access(path, mask, &st)</code></a></li>
+                        <li>如果是object不存在错误(-ENOENT), 则只要父目录有写入权限也可以. (新建文件)</li>
+                    </ul>
+                </li>
+                <li>如果O_TRUNC标志(truncate size to 0)被设置, 则设置st的st_size为0, 且标记后续要执行flush操作</li>
+                <li>如果文件不是常规文件或者是软连接(这个或者没必要?), 设置st的st_mtime为-1</li>
+                <li><a href="#get_object_attribute"><code>get_object_attribute(path, NULL, &meta, true, NULL, true); // no truncate cache</code></a></li>
+                <li><a><code>ent = FdManager::get()->Open(path, &meta, static_cast<ssize_t>(st.st_size), st.st_mtime, false, true)</code></a></li>
+                <li>如果需要执行flush操作, ent->RowFlush(path, true)</li>
+                <li>设置fuse_file_info的fh(file handler), <code>fi->fh = ent->GetFd()</code></li>
+            </ul>
+        </div>
+
+        <div class="func">
             <div class="name"><code>static int s3fs_getattr(const char* path, struct stat* stbuf)</code></div>
             <div class="desc">
                 fuse接口函数, 获取文件的attr <br/>

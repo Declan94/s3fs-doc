@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>S3fs Doc - fdcache.h/cpp</title>
+
+    <link type="text/css" href="bootstrap.min.css" rel="stylesheet" />
+    <link type="text/css" href="main.css" rel="stylesheet" />
+</head>
+<body>
+<div class="container-fluid">
+    <h2 class="top">S3fs Doc - fdcache.h/cpp</h2>
+
+    <div class="section">
+        <h3>FdManager</h3>
+
+        <div class="attrs">
+            <div class="attr" id="FdManager-fent">
+                <span class="name"><code>std::map&lt;std::string, class FdEntity*&gt; fent;</code></span>
+                FdEntity map, [path] -> [FdEntity object].
+                NoCache模式下, path是随机的tmppath. 否则path是object实际路径
+            </div>
+            <div class="attr" id="FdManager-cache_dir">
+                <span class="name"><code>static std::string cache_dir;</code></span> 缓存路径
+            </div>
+        </div>
+        <div class="func" id="FdManager-Open">
+            <div class="name"><code>FdEntity* FdManager::Open(const char* path, headers_t* pmeta, ssize_t size, time_t time, bool force_tmpfile, bool is_create)</code></div>
+            <div class="desc">
+                打开并返回一个FdEntity对象 <br/>
+                <code>path</code> object路径 <br/>
+                <code>pmeta</code> object的meta <br/>
+                <code>size</code> <br/>
+                <code>time</code> <br/>
+                <code>force_tmpfile</code> <br/>
+                <code>is_create</code> 当前没有对应的FdEntity时是否新建<br/>
+            </div>
+            <ul class="impl">
+                <li>在<a href="#FdManager-fent"><code>fent</code></a>中寻找path对应的FdEntity对象ent</li>
+                <li>如果未找到, is_create为false则返回NULL, 为true则新建FdEntity如下
+                    <ul>
+                        <li>构造缓存路径并创建其父目录<a href="#MakeCachePath"><code>FdManager::MakeCachePath(path, cache_path, true)</code></a></li>
+                        <li>新创建FdEntity对象. <a href="#FdEntity-FdEntity"><code>ent = new FdEntity(path, cache_path.c_str())</code></a></li>
+                        <li>将FdEntity对象存到<a href="#FdManager-fent"><code>fent</code></a>中,
+                            如果cache_path为空(即不缓存模式), key通过<a href="#MakeCachePath"><code>FdManager::MakeRandomTempPath(path, tmppath)</code></a>产生.
+                            否则key即为<code>path</code>
+                        </li>
+                    </ul>
+                </li>
+                <li>执行FdEntity对象的打开方法. <a href="FdEntity-Open"><code>ent->Open(pmeta, size, time)</code></a></li>
+            </ul>
+            <div class="remark">
+
+            </div>
+        </div>
+
+        <div class="func" id="MakeRandomTempPath">
+            <div class="name"><code>bool FdManager::MakeRandomTempPath(const char* path, string& tmppath)</code></div>
+            <div class="desc">
+                随机一个临时路径. <br />
+                when not using cache, the key of fdentity in <a href="#FdManager-fent"><code>fent</code></a> is set not really existing path. (but not strictly unexisting path.)
+            </div>
+            <ul>
+                <li>生成前缀<code>sprintf(szBuff, NOCACHE_PATH_PREFIX_FORM, random());</code></li>
+                <li>如果<code>path</code>非空, 在后面加上<code>path</code></li>
+            </ul>
+            <div class="remark">
+                关于<code>NOCACHE_PATH_PREFIX_FORM</code>:
+<pre>//------------------------------------------------
+// FdManager symbol
+//------------------------------------------------
+// [NOTE]
+// NOCACHE_PATH_PREFIX symbol needs for not using cache mode.
+// Now s3fs I/F functions in s3fs.cpp has left the processing
+// to FdManager and FdEntity class. FdManager class manages
+// the list of local file stat and file descriptor in conjunction
+// with the FdEntity class.
+// When s3fs is not using local cache, it means FdManager must
+// return new temporary file descriptor at each opening it.
+// Then FdManager caches fd by key which is dummy file path
+// instead of real file path.
+// This process may not be complete, but it is easy way can
+// be realized.
+//
+#define NOCACHE_PATH_PREFIX_FORM    " __S3FS_UNEXISTED_PATH_%lx__ / "      // important space words for simply
+</pre>
+            </div>
+        </div>
+
+        <div class="func" id="MakeCachePath">
+            <div class="name"><code>bool FdManager::MakeCachePath(const char* path, string& cache_path, bool is_create_dir, bool is_mirror_path)</code></div>
+            <div class="desc">
+                <code>path</code> 目标object的路径<br/>
+                <code>cache_path</code> 用于返回缓存路径 <br/>
+                <code>is_create_dir</code> default true 是否创建父级目录 <br/>
+                <code>is_mirror_path</code> default false 是否镜像路径 <br/>
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#FdManager-cache_dir"><code>FdManager::cache_dir</code></a>为空则直接返回空字符串</li>
+                <li>构造resolved_path如下
+                    <ul>
+                        <li>如果不是镜像路径, resolved_path构造为 [FdManager::cache_dir]/[bucket] </li>
+                        <li>如果是镜像路径, resolved_path构造为 [FdManager::cache_dir]/.[bucket].mirror </li>
+                    </ul>
+                </li>
+                <li>如果<code>is_create_dir</code>, 新建父级目录, 相当于执行mkdir -p `dirname $resolved_path/$path`</li>
+                <li>将<code>cache_path</code>赋值为resolved_path+path</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <div class="section">
+        <h3>FdEntity</h3>
+
+        <div class="attrs">
+            <div class="attr"><span class="name"><code>PageList        pagelist;        </code></span> </div>
+            <div class="attr" id="FdEntity-refcnt"><span class="name"><code>int             refcnt;          </code></span>// reference count </div>
+            <div class="attr" id="FdEntity-path"><span class="name"><code>std::string     path;            </code></span>// object path </div>
+            <div class="attr" id="FdEntity-cachepath"><span class="name"><code>std::string     cachepath;       </code></span>// local cache file path (if this is empty, does not load/save pagelist.)</div>
+
+            <div class="attr" id="FdEntity-mirrorpath"><span class="name"><code>std::string     mirrorpath;      </code></span>// mirror file path to local cache file path </div>
+            <div class="attr" id="FdEntity-fd"><span class="name"><code>int             fd;              </code></span>// file descriptor(tmp file or cache file) </div>
+            <div class="attr" id="FdEntity-pfile"><span class="name"><code>FILE*           pfile;           </code></span>// file pointer(tmp file or cache file) </div>
+            <div class="attr" id="FdEntity-is_modify"><span class="name"><code>bool            is_modify;       </code></span>// if file is changed, this flag is true </div>
+            <div class="attr" id="FdEntity-orgmeta"><span class="name"><code>headers_t       orgmeta;         </code></span>// original headers at opening </div>
+            <div class="attr" id="FdEntity-size_orgmeta"><span class="name"><code>size_t          size_orgmeta;    </code></span>// original file size in original headers </div>
+
+            <div class="attr" id="FdEntity-upload_id"><span class="name"><code>std::string     upload_id;       </code></span>// for no cached multipart uploading when no disk space </div>
+            <div class="attr" id="FdEntity-etaglist"><span class="name"><code>etaglist_t      etaglist;        </code></span>// for no cached multipart uploading when no disk space </div>
+            <div class="attr" id="FdEntity-mp_start"><span class="name"><code>off_t           mp_start;        </code></span>// start position for no cached multipart(write method only) </div>
+            <div class="attr" id="FdEntity-mp_size"><span class="name"><code>size_t          mp_size;         </code></span>// size for no cached multipart(write method only) </div>
+
+        </div>
+
+        <div class="func" id="FdEntity-FdEntity">
+            <div class="name"><code>FdEntity::FdEntity(const char* tpath, const char* cpath)</code></div>
+            <div class="desc">
+                FdEntity构造函数 <br/>
+                <code>tpath</code> 目标object的路径 <br/>
+                <code>cpath</code> 缓存路径 <br/>
+            </div>
+            <ul class="impl">
+                <li>初始化成员变量
+                    <ul>
+                        <li><a href="#FdEntity-refcnt"><code>refcnt</code></a>初始化为0</li>
+                        <li><a href="#FdEntity-path"><code>path</code></a>初始化为<code>tpath</code>或空字符串(当tpath为NULL时)</li>
+                        <li><a href="#FdEntity-cachepath"><code>cachepath</code></a>初始化为<code>cpath</code>或空字符串(当cpath为NULL时)</li>
+                        <li><a href="#FdEntity-mirrorpath"><code>mirrorpath</code></a>初始化为空字符串""</li>
+                        <li><a href="#FdEntity-fd"><code>fd</code></a>初始化为-1</li>
+                        <li><a href="#FdEntity-pfile"><code>pfile</code></a>初始化为NULL</li>
+                        <li><a href="#FdEntity-is_modify"><code>is_modify</code></a>初始化为false</li>
+                        <li><a href="#FdEntity-size_orgmeta"><code>size_orgmeta</code></a>初始化为0</li>
+                        <li><a href="#FdEntity-upload_id"><code>upload_id</code></a>初始化为空字符串""</li>
+                        <li><a href="#FdEntity-mp_start"><code>mp_start</code></a>初始化为0</li>
+                        <li><a href="#FdEntity-mp_size"><code>mp_size</code></a>初始化为0</li>
+                    </ul>
+                </li>
+                <li>初始化线程锁, 类型设置为<code>S3FS_MUTEX_RECURSIVE</code></li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>
+
