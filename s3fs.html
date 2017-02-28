@@ -63,7 +63,7 @@
                 <li>如果文件不是常规文件或者是软连接(这个或者没必要?), 设置st的st_mtime为-1</li>
                 <li><a href="#get_object_attribute"><code>get_object_attribute(path, NULL, &meta, true, NULL, true); // no truncate cache</code></a></li>
                 <li><a href="fdcache.html#FdManager-Open"><code>ent = FdManager::get()->Open(path, &meta, static_cast&lt;ssize_t&gt;(st.st_size), st.st_mtime, false, true)</code></a></li>
-                <li>如果需要执行flush操作, ent->RowFlush(path, true)</li>
+                <li>如果需要执行flush操作, <a><code>ent->RowFlush(path, true)</code></a></li>
                 <li>设置fuse_file_info的fh(file handler), <code>fi->fh = ent->GetFd()</code></li>
             </ul>
         </div>

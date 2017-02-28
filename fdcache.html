@@ -159,6 +159,47 @@
                 <li>初始化线程锁, 类型设置为<code>S3FS_MUTEX_RECURSIVE</code></li>
             </ul>
         </div>
+
+        <div class="func" id="FdEntity-Open">
+            <div class="name"><code>int FdEntity::Open(headers_t* pmeta, ssize_t size, time_t time)</code></div>
+            <div class="desc">
+                <code>pmeta</code> 最新获取的object的原始meta信息 <br/>
+                <code>size</code> <br/>
+                <code>time</code> <br/>
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#FdEntity-fd"><code>fd</code></a>不为-1, 说明已经打开了本地文件.
+                    <ul>
+                        <li>增加<a href="#FdEntity-refcnt"><code>refcnt</code></a>, <a href="#FdEntity-Dup"><code>Dup()</code></a></li>
+                        <li>检查size是否变动, 如果变动
+                            <ul>
+                                <li><code>ftruncate(fd, static_cast&lt;size_t&gt;(size))</code></li>
+                                <li><a><code>pagelist.Resize(static_cast&lt;size_t&gt;(size), false)</code></a></li>
+                            </ul>
+                        </li>
+                        <li>
+                            更新<a href="#FdEntity-orgmeta"><code>orgmeta</code></a>和<a href="#FdEntity-size_orgmeta"><code>size_orgmeta</code></a>
+                            <ul>
+                                <li>如果<code>pmeta</code>非空, newsize从<code>pmeta</code>中获取('Content-Length'字段).
+                                    否则如果<code>size</code>大于0, 则newsize设置为<code>size</code>
+                                </li>
+                                <li>如果newsize < size_orgmeta, 则更新<a href="#FdEntity-size_orgmeta"><code>size_orgmeta</code></a>为newsize. </li>
+                                <li>如果<code>pmeta</code>非空, 更新<a href="#FdEntity-orgmeta"><code>orgmeta</code></a>为pmeta</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+
+                ...
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-Dup">
+            <div class="name"><code>int FdEntity::Dup(void)</code></div>
+            <div class="desc">
+                如果已经打开本地文件(<a href="#FdEntity-fd"><code>fd</code></a> != -1), 则<a href="#FdEntity-refcnt"><code>refcnt++</code></a>
+            </div>
+        </div>
     </div>
 
 </div>
