@@ -306,6 +306,43 @@
                 <li><code>fstat(fd, &st)</code></li>
             </ul>
         </div>
+
+        <div class="func" id="FdEntity-GetSize">
+            <div class="name"><code>bool FdEntity::GetSize(size_t& size)</code></div>
+            <ul class="impl">
+                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回false</li>
+                <li><a href="#PageList-Size"><code>size = pagelist.Size()</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-SetMode">
+            <div class="name"><code>bool FdEntity::SetMode(mode_t mode)</code></div>
+            <ul class="impl">
+                <li><a href="#FdEntity-orgmeta"><code>orgmeta["x-amz-meta-mode"] = str(mode)</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-SetUId">
+            <div class="name"><code>bool FdEntity::SetUId(uid_t uid)</code></div>
+            <ul class="impl">
+                <li><a href="#FdEntity-orgmeta"><code>orgmeta["x-amz-meta-uid"] = str(uid)</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-SetGId">
+            <div class="name"><code>bool FdEntity::SetGId(gid_t gid)</code></div>
+            <ul class="impl">
+                <li><a href="#FdEntity-orgmeta"><code>orgmeta["x-amz-meta-gid"] = str(gid)</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-SetContentType">
+            <div class="name"><code>bool FdEntity::SetContentType(const char* path)</code></div>
+            <ul class="impl">
+                <li><a href="curl.html#S3fsCurl-LookupMimeType"><code>orgmeta["Content-Type"] = S3fsCurl::LookupMimeType(string(path));</code></a></li>
+            </ul>
+        </div>
+
     </div>
 
     <div class="section">
