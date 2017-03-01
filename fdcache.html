@@ -447,11 +447,13 @@ typedef std::list&lt;struct fdpage*&gt; fdpage_list_t;
         <div class="attrs">
             <div class="attr" id="CacheFileStat-path">
                 <span class="name"><code>std::string path;</code></span>
-                // 文件路径
+                // 缓存文件的文件路径 <br/>
             </div>
+
             <div class="attr" id="CacheFileStat-fd">
                 <span class="name"><code>int           fd;</code></span>
-                // 文件描述符 (file descriptor)
+                // 缓存文件的stat文件的文件描述符 (file descriptor), -1表示还未打开stat文件 <br/>
+                <span class="name"><code>int GetFd(void) const { return fd; }</code></span>
             </div>
         </div>
 
