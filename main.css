@@ -5,7 +5,7 @@ pre {
     white-space: pre-wrap;
     white-space: -moz-pre-wrap;
     white-space: -o-pre-wrap;
-    background: inherit !important;
+    background: inherit;
 }
 
 code {
@@ -17,6 +17,10 @@ code {
     white-space: -o-pre-wrap;
     color: cornflowerblue;
     background: inherit;
+}
+
+.name code {
+    color: black;
 }
 
 .name > code {
@@ -56,12 +60,13 @@ div.func, div.attrs {
 }
 
 div.attr {
-
+    margin-bottom: 4px;
 }
 
 .name {
     font-style: italic;
     margin: auto 6px;
+    font-size: 1.1em;
 }
 
 div.func .name {

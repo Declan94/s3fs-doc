@@ -16,12 +16,17 @@
 
         <div class="attrs">
             <div class="attr" id="FdManager-fent">
-                <span class="name"><code>std::map&lt;std::string, class FdEntity*&gt; fent;</code></span>
-                FdEntity map, [path] -> [FdEntity object].
-                NoCache模式下, path是随机的tmppath. 否则path是object实际路径
+                <div class="name"><code>std::map&lt;std::string, class FdEntity*&gt; fent;</code></div>
+                <span class="desc">
+                    FdEntity map, [path] -> [FdEntity object].
+                    NoCache模式下, path是随机的tmppath. 否则path是object实际路径
+                </span>
             </div>
             <div class="attr" id="FdManager-cache_dir">
-                <span class="name"><code>static std::string cache_dir;</code></span> 缓存路径
+                <div class="name"><code>static std::string cache_dir;</code></div>
+                <span class="desc">
+                    缓存路径
+                </span>
             </div>
         </div>
         <div class="func" id="FdManager-Open">
@@ -174,7 +179,7 @@
                         <li>检查size是否变动, 如果变动
                             <ul>
                                 <li><code>ftruncate(fd, static_cast&lt;size_t&gt;(size))</code></li>
-                                <li><a><code>pagelist.Resize(static_cast&lt;size_t&gt;(size), false)</code></a></li>
+                                <li><a href="#PageList-Resize"><code>pagelist.Resize(static_cast&lt;size_t&gt;(size), false)</code></a></li>
                             </ul>
                         </li>
                         <li>
@@ -200,6 +205,219 @@
                 如果已经打开本地文件(<a href="#FdEntity-fd"><code>fd</code></a> != -1), 则<a href="#FdEntity-refcnt"><code>refcnt++</code></a>
             </div>
         </div>
+    </div>
+
+    <div class="section">
+        <h3>PageList</h3>
+        <div class="desc">
+            维护一个页链表, 标记各个页的起始位置, 长度, 是否已加载. 用于分页加载和上传object.
+        </div>
+        <div class="attrs">
+            相关定义:
+<pre id="fdpage">// page block information
+struct fdpage
+{
+  off_t  offset;
+  size_t bytes;
+  bool   loaded;
+
+  fdpage(off_t start = 0, size_t size = 0, bool is_loaded = false)
+           : offset(start), bytes(size), loaded(is_loaded) {}
+
+  off_t next(void) const { return (offset + bytes); }
+  off_t end(void) const { return (0 &lt; bytes ? offset + bytes - 1 : 0); }
+};
+typedef std::list&lt;struct fdpage*&gt; fdpage_list_t;
+</pre>
+            成员变量:
+            <div class="attr" id="PageList-pages">
+                <div class="name"><code>fdpage_list_t pages;</code></div>
+            </div>
+        </div>
+
+        <div class="func" id="PageList-Init">
+            <div class="name"><code>bool PageList::Init(size_t size, bool is_loaded)</code></div>
+            <div class="desc">
+                初始化PageList <br/>
+                <code>size</code> 总大小 <br/>
+                <code>is_loaded</code> 是否已加载 <br/>
+            </div>
+            <ul class="impl">
+                <li>清空<a href="#PageList-pages"><code>pages</code></a></li>
+                <li>新建<a href="#fdpage"><code>new fdpage(0, size, is_loaded)</code></a>并添加到<a href="#PageList-pages"><code>pages</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="PageList-Size">
+            <div class="name">size_t PageList::Size(void) const</div>
+            <div class="desc">
+                获取当前的总大小
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#PageList-pages"><code>pages</code></a>为空, 返回0</li>
+                <li>否则找到<a href="#PageList-pages"><code>pages</code></a>最后一个元素 <code>fdpage_list_t::const_reverse_iterator riter = pages.rbegin();</code></li>
+                <li>返回<code>static_cast&lt;size_t&gt;((*riter)->next())</code></li>
+            </ul>
+        </div>
+
+        <div class="func" id="PageList-Compress">
+            <div class="name"><code>bool PageList::Compress(void)</code></div>
+            <div class="desc">
+                压缩pagelist, 将连续的未加载的page, 或者连续的已加载的page合并为一个page, 从而减少pagelist的长度.
+            </div>
+        </div>
+
+        <div class="func" id="PageList-Parse">
+            <div class="name"><code>bool PageList::Parse(off_t new_pos)</code></div>
+            <div class="desc">
+                保证<a href="#PageList-pages"><code>pages</code></a>中包含一页从<code>new_pos</code>开始的page
+            </div>
+            <ul class="impl">
+                <li>遍历<a href="#PageList-pages"><code>pages</code></a>找到包含<code>new_pos</code>的一页page</li>
+                <li>如果<code>new_pos</code>为该页的开头, 则直接返回成功</li>
+                <li>如果<code>new_pos</code>在该页中间部位, 则从这个位置将该页拆分为两页, 后一页从<code>new_pos</code>开始</li>
+            </ul>
+        </div>
+
+        <div class="func" id="PageList-Resize">
+            <div class="name"><code>bool PageList::Resize(size_t size, bool is_loaded)</code></div>
+            <div class="desc">
+                调整大小 <br/>
+                <code>size</code> 新的大小. <br/>
+                <code>is_loaded</code> 新增的部分是否已加载. <br/>
+            </div>
+            <ul class="impl">
+                <li>获取当前的大小. <a href="#PageList-Size"><code>size_t total = Size();</code></a></li>
+                <li>根据当前大小和新的<code>size</code>选择以下操作
+                    <ul>
+                        <li>如果当前大小为0, <a href="#PageList-Init"><code>Init(size, is_loaded);</code></a></li>
+                        <li>如果当前大小(<code>total</code>)小于新大小(<code>size</code>).
+                            新建<a href="#fdpage"><code>new fdpage(static_cast&lt;off_t&gt;(total), (size - total), is_loaded)</code></a>并添加到pages结尾.
+                        </li>
+                        <li>如果当前大小(<code>total</code>)大于新大小(<code>size</code>).
+                            遍历<a href="#PageList-pages"><code>pages</code></a>, 根据新大小截断并删除多余的项目.
+                        </li>
+                    </ul>
+                </li>
+                <li>压缩分页链表<a href="#PageList-Compress"><code>Compress()</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="PageList-IsPageLoaded">
+            <div class="name"><code>bool PageList::IsPageLoaded(off_t start, size_t size) const</code></div>
+            <div class="desc">
+                查询从start开始大小size的一段是否以加载.
+            </div>
+            <ul class="impl">
+                <li>遍历<a href="#PageList-pages"><code>pages</code></a>以查找包含<code>(start, size)</code>这一段的所有页</li>
+                <li>上述页任意一页未加载则返回false, 否则返回true</li>
+            </ul>
+        </div>
+
+        <div class="func" id="PageList-SetPageLoadedStatus">
+            <div class="name"><code>bool PageList::SetPageLoadedStatus(off_t start, size_t size, bool is_loaded, bool is_compress)</code></div>
+            <div class="desc">
+                设置从<code>start</code>开始大小<code>size</code>的一段的加载状态为<code>is_loaded</code>. <br/>
+                <code>is_compress</code> 结束标记后是否进行压缩操作.
+            </div>
+            <ul class="impl">
+                <li>获取当前的大小. <a href="#PageList-Size"><code>size_t now_size = Size();</code></a></li>
+                <li>如果<code>start >= now_size </code>, 通过<a href="#PageList-Resize"><code>Resize</code></a>函数实现扩容同时标记<code>is_loaded</code>
+                    <ul>
+                        <li><a href="#PageList-Resize"><code>Resize(static_cast&lt;size_t&gt;(start), false);</code></a></li>
+                        <li><a href="#PageList-Resize"><code>Resize(static_cast&lt;size_t&gt;(start + size), is_loaded);</code></a></li>
+                    </ul>
+                </li>
+                <li>如果<code>start < now_size</code>在当前范围内, 而<code>start+size >= now_size</code>,
+                    用<a href="#PageList-Resize"><code>Resize</code></a>先压缩再扩容实现标记<code>is_loaded</code>
+                    <ul>
+                        <li><a href="#PageList-Resize"><code>Resize(static_cast&lt;size_t&gt;(start), false);</code></a></li>
+                        <li><a href="#PageList-Resize"><code>Resize(static_cast&lt;size_t&gt;(start + size), is_loaded);</code></a></li>
+                    </ul>
+                </li>
+                <li>否则说明片段的两段都在当前大小内,
+                    <ul>
+                        <li>保证分页中包含从<code>start</code>开始的一页. <a href="#PageList-Parse"><code>Parse(start);</code></a></li>
+                        <li>保证分页中包含从<code>start+size</code>开始的一页. <a href="#PageList-Parse"><code>Parse(start+size);</code></a></li>
+                        <li>标记<code>(start, size)</code>片段包含的所有页的加载状态为<code>is_loaded</code></li>
+                    </ul>
+                </li>
+                <li>如果<code>is_compress</code>, 压缩分页链表, <a href="#PageList-Compress"><code>Compress()</code></a></li>
+            </ul>
+            <div class="remark">
+                其实选择分支的前两个可以合并.
+            </div>
+        </div>
+
+        <div class="func" id="FindUnloadedPage">
+            <div class="name"><code>bool PageList::FindUnloadedPage(off_t start, off_t& resstart, size_t& ressize) const</code></div>
+            <div class="desc">
+                查找<code>start</code>位置之后第一个未加载的的分页. <code>start</code>是指该分页包含<code>start</code>位置以后的部分.
+                <code>resstart</code>为找到的分页的开始位置. (可能小于start, 只要该分页结尾不小于start)
+                <code>ressize</code>为找到的分页的大小.  (必然满足start <= resstart + ressize - 1)
+            </div>
+        </div>
+
+        <div class="func" id="GetTotalUnloadedPageSize">
+            <div class="name"><code>size_t PageList::GetTotalUnloadedPageSize(off_t start, size_t size) const</code></div>
+            <div class="desc">
+                统计从<code>start</code>开始长度为<code>size</code>的片段内未加载的部分的总大小. <br/>
+                通过遍历<a href="#PageList-pages"><code>pages</code></a>统计实现.
+            </div>
+        </div>
+
+        <div class="func" id="GetUnloadedPages">
+            <div class="name"><code>int PageList::GetUnloadedPages(fdpage_list_t& unloaded_list, off_t start, size_t size) const</code></div>
+            <div class="desc">
+                计算从<code>start</code>开始长度为<code>size</code>的片段内, 未加载的分页列表<code>unloaded_list</code>. <br/>
+                注意<code>unloaded_list</code>中的分页未必是<a href="#PageList-pages"><code>pages</code></a>中确实存在的分页. 仅表示这些分页部分是未加载的. <br/>
+                <code>size</code>为0表示从<code>start</code>开始到文件结尾. <br/>
+            </div>
+            <ul class="impl">
+                <li>如果<code>size == 0</code>, 根据文件总大小修改size使得<code>start + size</code>刚好为文件结尾</li>
+                <li>计算目标片段的结束位置<code> next = static_cast&lt;off_t&gt;(start + size)</code></li>
+                <li>遍历<a href="#PageList-pages"><code>pages</code></a>, 对于和<code>(start, size)</code>片段有交集的未加载的分页<code>(*iter)</code>:
+                    <ul>
+                        <li>生成需要加载的分页, 起始位置为<code>max((*iter)->offset, start)</code>
+                            结束位置为<code>min((*iter)->next(), next)</code>
+                        </li>
+                        <li>如果生成的分页和<code>unloaded_list</code>最后一个分页是连续的, 直接合并进上一个分页</li>
+                        <li>否则加入到<code>unloaded_list</code>结尾</li>
+                    </ul>
+                </li>
+                <li>返回<code>unloaded_list.size()</code></li>
+            </ul>
+        </div>
+
+        <div class="func" id="PageList-Serialize">
+            <div class="name"><code>bool PageList::Serialize(CacheFileStat& file, bool is_output)</code></div>
+            <div class="desc">
+                序列化<code>PageList</code> <br/>
+                <code>file</code> 用于序列化的文件 <br/>
+                <code>is_output</code> 序列化到输出文件还是从文件读取. <br/>
+            </div>
+            <ul class="impl">
+                <li>检查缓存文件是否打开<a href="#CacheFileStat-Open"><code>file.Open()</code></a>, 未打开直接返回. </li>
+                <li>如果<code>is_output</code>, 序列化输出,
+                    <ul>
+                        <li>用<code>stringstream ssall</code>生成序列化字符串</li>
+                        <li>第一部分是总大小. <a href="#PageList-Size"><code>ssall << Size();</code></a></li>
+                        <li>对于<a href="#PageList-pages"><code>pages</code></a>中的每一个分页<code>(*iter)</code>,
+                            <code>ssall << "\n" << (*iter)->offset << ":" << (*iter)->bytes << ":" << ((*iter)->loaded ? "1" : "0");</code>
+                        </li>
+                    </ul>
+                </li>
+                <li>如果<code>!is_output</code>, 序列化读入,
+                    <ul>
+                        <li>获取file的大小, 如果为0, 初始化大小为0的<code>PageList</code>并返回. <a href="#PageList-Init">Init(0, false);</a></li>
+                        <li>先读取总大小<code>total</code></li>
+                        <li>按行读取各个分页并解析<code>offset, size, is_loaded</code>. 然后通过<a href="#PageList-SetPageLoadedStatus"><code>SetPageLoadedStatus(offset, size, is_loaded)</code></a>新建分页</li>
+                        <li>检查总大小是否一致. 如果<a href="#PageList-Size"><code>total != Size()</code></a>, 清空分页列表并返回false</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
     </div>
 
 </div>
