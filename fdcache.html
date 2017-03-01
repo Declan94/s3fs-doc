@@ -1,3 +1,20 @@
+<!--Copyright 2017 Declan Chen <chenye94@qq.com>-->
+
+<!--This file is part of s3fs-doc.-->
+
+<!--s3fs-doc is free software: you can redistribute it and/or modify-->
+<!--it under the terms of the GNU General Public License as published by-->
+<!--the Free Software Foundation, either version 3 of the License, or-->
+<!--(at your option) any later version.-->
+
+<!--s3fs-doc is distributed in the hope that it will be useful,-->
+<!--but WITHOUT ANY WARRANTY; without even the implied warranty of-->
+<!--MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the-->
+<!--GNU General Public License for more details.-->
+
+<!--You should have received a copy of the GNU General Public License-->
+<!--along with s3fs-doc.  If not, see <http://www.gnu.org/licenses/>.-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -397,7 +414,7 @@ typedef std::list&lt;struct fdpage*&gt; fdpage_list_t;
                 <code>is_output</code> 序列化到输出文件还是从文件读取. <br/>
             </div>
             <ul class="impl">
-                <li>检查缓存文件是否打开<a href="#CacheFileStat-Open"><code>file.Open()</code></a>, 未打开直接返回. </li>
+                <li>打开缓存文件<a href="#CacheFileStat-Open"><code>file.Open()</code></a>, 若失败直接返回. </li>
                 <li>如果<code>is_output</code>, 序列化输出,
                     <ul>
                         <li>用<code>stringstream ssall</code>生成序列化字符串</li>
@@ -418,6 +435,79 @@ typedef std::list&lt;struct fdpage*&gt; fdpage_list_t;
             </ul>
         </div>
 
+    </div>
+
+    <div class="section">
+        <h3>CacheFileStat</h3>
+
+        <div class="desc">
+            用于管理缓存文件的Stat文件(描述文件?). Stat文件用于序列化PageList, 即保存缓存文件中哪些部分被加载了.
+        </div>
+
+        <div class="attrs">
+            <div class="attr" id="CacheFileStat-path">
+                <span class="name"><code>std::string path;</code></span>
+                // 文件路径
+            </div>
+            <div class="attr" id="CacheFileStat-fd">
+                <span class="name"><code>int           fd;</code></span>
+                // 文件描述符 (file descriptor)
+            </div>
+        </div>
+
+        <div class="func" id="CacheFileStat-MakeCacheFileStatPath">
+            <div class="name"><code>bool CacheFileStat::MakeCacheFileStatPath(const char* path, string& sfile_path, bool is_create_dir)</code></div>
+            <div class="desc">
+                静态方法, 构造缓存文件的stat文件路径 <br/>
+                <code>path</code> 缓存文件路径 <br/>
+                <code>sfile_path</code> 构造的stat文件路径 <br/>
+                <code>is_create_dir</code> 是否新建路径上的目录 <br/>
+                构造的路径为/[cache_dir]/.[bucket].stat/[path] <br/>
+            </div>
+        </div>
+
+        <div class="func" id="CacheFileStat-CacheFileStat">
+            <div class="name"><code>CacheFileStat::CacheFileStat(const char* tpath)</code></div>
+            <ul class="impl">
+                <li>初始化<a href="#CacheFileStat-fd"><code>fd</code></a>为-1</li>
+                <li>初始化<a href="#CacheFileStat-path"><code>path</code></a>为空字符串</li>
+                <li>如果<code>tpath</code>非空, <a href="#CacheFileStat-SetPath"><code>SetPath(tpath, true)</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="CacheFileStat-SetPath">
+            <div class="name"><code>bool CacheFileStat::SetPath(const char* tpath, bool is_open)</code></div>
+            <div class="desc">
+                设置路径为<code>tpath</code> <br/>
+                <code>is_open</code> 是否同时执行打开操作 <br/>
+            </div>
+            <ul class="impl">
+                <li>关闭已经打开的旧文件<a href="#CacheFileStat-Release"><code>Release()</code></a></li>
+                <li><code>path = tpath;</code></li>
+                <li>如果<code>is_open</code>, <a href="#CacheFileStat-Open">Open()</a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="CacheFileStat-Release">
+            <div class="name"><code>bool CacheFileStat::Release(void)</code></div>
+            <div class="desc">
+                关闭已经打开的文件.
+            </div>
+        </div>
+
+        <div class="func" id="CacheFileStat-Open">
+            <div class="name"><code>bool CacheFileStat::Open(void)</code></div>
+            <div class="desc">
+                打开文件
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#CacheFileStat-path"><code>path</code></a>为空, 返回false</li>
+                <li>如果<a href="#CacheFileStat-fd"><code>fd != -1</code></a>, 说明已经打开, 返回true</li>
+                <li>构造stat文件路径<a href="#CacheFileStat-MakeCacheFileStatPath"><code>CacheFileStat::MakeCacheFileStatPath(path.c_str(), sfile_path, true)</code></a></li>
+                <li>打开stat文件(新建)<a href="#CacheFileStat-fd"><code>fd = open(sfile_path.c_str(), O_CREAT|O_RDWR, 0600)</code></a></li>
+                <li><code>lseek(fd, 0, SEEK_SET)</code></li>
+            </ul>
+        </div>
     </div>
 
 </div>
