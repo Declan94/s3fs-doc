@@ -69,7 +69,7 @@
                         </li>
                     </ul>
                 </li>
-                <li>执行FdEntity对象的打开方法. <a href="FdEntity-Open"><code>ent->Open(pmeta, size, time)</code></a></li>
+                <li>执行FdEntity对象的打开方法. <a href="#FdEntity-Open"><code>ent->Open(pmeta, size, time)</code></a></li>
             </ul>
             <div class="remark">
 
@@ -136,7 +136,7 @@
         <h3>FdEntity</h3>
 
         <div class="attrs">
-            <div class="attr"><span class="name"><code>PageList        pagelist;        </code></span> </div>
+            <div class="attr" id="FdEntity-pagelist"><span class="name"><code>PageList        pagelist;        </code></span> </div>
             <div class="attr" id="FdEntity-refcnt"><span class="name"><code>int             refcnt;          </code></span>// reference count </div>
             <div class="attr" id="FdEntity-path"><span class="name"><code>std::string     path;            </code></span>// object path </div>
             <div class="attr" id="FdEntity-cachepath"><span class="name"><code>std::string     cachepath;       </code></span>// local cache file path (if this is empty, does not load/save pagelist.)</div>
@@ -186,8 +186,8 @@
             <div class="name"><code>int FdEntity::Open(headers_t* pmeta, ssize_t size, time_t time)</code></div>
             <div class="desc">
                 <code>pmeta</code> 最新获取的object的原始meta信息 <br/>
-                <code>size</code> <br/>
-                <code>time</code> <br/>
+                <code>size</code> default -1 <br/>
+                <code>time</code> default -1, 表示不修改 <br/>
             </div>
             <ul class="impl">
                 <li>如果<a href="#FdEntity-fd"><code>fd</code></a>不为-1, 说明已经打开了本地文件.
@@ -209,10 +209,59 @@
                                 <li>如果<code>pmeta</code>非空, 更新<a href="#FdEntity-orgmeta"><code>orgmeta</code></a>为pmeta</li>
                             </ul>
                         </li>
+                        <li>返回0, 不用执行后续操作</li>
                     </ul>
                 </li>
-
-                ...
+                <li>如果是有缓存目录的模式,
+                    <ul>
+                        <li><a href="#CacheFileStat-CacheFileStat"><code>CacheFileStat cfstat(path.c_str())</code></a> </li>
+                        <li>打开缓存文件<code>fd = open(cachepath.c_str(), O_RDWR)</code>和缓存stat文件<a href="#PageList-Serialize"><code>pagelist.Serialize(cfstat, false)</code></a></li>
+                        <li>如果打开成功, 根据原有的缓存文件的信息进行操作.
+                            <ul>
+                                <li>获取缓存文件的attr <code>fstat(fd, &st)</code></li>
+                                <li>如果<code>size == -1</code>, 则<code>size = static_cast&lt;ssize_t&gt;(st.st_size)</code></li>
+                                <li>如果<a href="#PageList-Size"><code>size != pagelist.Size()</code></a>, 则重置<code>pagelist</code>的大小.
+                                    <a href="#PageList-Resize"><code>pagelist.Resize(static_cast&lt;size_t&gt;(size), false)</code></a>
+                                </li>
+                                <li>如果<code>size</code>不为-1, 且与<code>st.size</code>不一致, 对缓存文件执行truncate操作.
+                                    <ul>
+                                        <li><code>ftruncate(fd, static_cast&lg;off_t&gt;(size))</code></li>
+                                        <li><code>fsync(fd)</code></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>如果打开失败, 初始化缓存文件.
+                            <ul>
+                                <li>新建并打开缓存文件. <code>fd = open(cachepath.c_str(), O_CREAT|O_RDWR|O_TRUNC, 0600)</code></li>
+                                <li>如果<code>size</code>为-1, 则改为0, 并初始化分页表. <a href="#PageList-Init"><code>size = 0; pagelist.Init(0, false)</code></a></li>
+                                <li>如果<code>size</code>不为-1, 则调整分页表大小, <a href="#PageList-Resize"><code>pagelist.Resize(static_cast&lt;size_t&gt;(size), false)</code></a>.
+                                    并且对缓存文件执行truncate操作. </li>
+                            </ul>
+                        </li>
+                        <li><a href="#FdEntity-OpenMirrorFile"><code>mirrorfd = OpenMirrorFile()</code></a></li>
+                        <li><code>close(fd); fd = mirrorfd;</code></li>
+                        <li><code>pfile = fdopen(fd, "wb");</code></li>
+                    </ul>
+                </li>
+                <li>如果是没有缓存目录的模式,
+                    <ul>
+                        <li>打开一个临时文件<code>pfile = tmpfile(); fd = fileno(pfile);</code></li>
+                        <li>如果<code>size</code>为-1, 则改为0, 并初始化分页表. <a href="#PageList-Init"><code>size = 0; pagelist.Init(0, false)</code></a></li>
+                        <li>如果<code>size</code>不为-1, 则调整分页表大小, <a href="#PageList-Resize"><code>pagelist.Resize(static_cast&lt;size_t&gt;(size), false)</code></a>.
+                            并且对缓存文件执行truncate操作. </li>
+                    </ul>
+                </li>
+                <li>上述操作中如果改动了<a href="#FdEntity-pagelist"><code>pagelist</code></a>, 则将其重新序列化保存到stat文件.
+                    <ul>
+                        <li><a href="#CacheFileStat-CacheFileStat"><code>CacheFileStat cfstat(path.c_str());</code></a></li>
+                        <li><a href="#PageList-Serialize"><code>pagelist.Serialize(cfstat, true);</code></a></li>
+                    </ul>
+                </li>
+                <li>设置引用数<a href="#FdEntity-refcnt"><code>refcnt</code></a>为1</li>
+                <li>设置修改标记<a href="#FdEntity-is_modify"><code>is_modify</code></a>为false</li>
+                <li>根据<code>pmeta</code>更新<a href="#FdEntity-orgmeta"><code>orgmeta</code></a>和<a href="#FdEntity-size_orgmeta"><code>size_orgmeta</code></a></li>
+                <li>如果<code>time</code>不为-1, <a href="#FdEntity-SetMtime"><code>SetMtime(time)</code></a></li>
             </ul>
         </div>
 
@@ -221,6 +270,41 @@
             <div class="desc">
                 如果已经打开本地文件(<a href="#FdEntity-fd"><code>fd</code></a> != -1), 则<a href="#FdEntity-refcnt"><code>refcnt++</code></a>
             </div>
+        </div>
+
+        <div class="func" id="FdEntity-SetMtime">
+            <div class="name"><code>int FdEntity::SetMtime(time_t time)</code></div>
+            <div class="desc">
+                修改文件的access time和modification time
+            </div>
+            <ul class="impl">
+                <li>如果已经打开了缓存文件或临时文件, 用<code>futimes(fd, tv)</code>函数修改文件的access time和modification time均为<code>time</code></li>
+                <li>如果未打开缓存文件, 如果是有缓存文件(<code>0 < cachepath.size()</code>), 用<code>utime(cachepath.c_str(), &n_mtime)</code>函数修改缓存文件的access time和modification time均为<code>time</code></li>
+                <li>修改<a href="#FdEntity-orgmeta"><code>orgmeta</code></a>. <code>orgmeta["x-amz-meta-mtime"] = str(time)</code></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-UpdateMtime">
+            <div class="name"><code>bool FdEntity::UpdateMtime(void)</code></div>
+            <div class="desc">
+                根据当前文件的attr信息更新<a href="#FdEntity-orgmeta"><code>orgmeta</code></a>的mtime字段
+            </div>
+            <ul class="impl">
+                <li><a href="#FdEntity-GetStats"><code>GetStats(st)</code></a> </li>
+                <li><a href="#FdEntity-orgmeta"><code>orgmeta["x-amz-meta-mtime"] = str(st.st_mtime)</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-GetStats">
+            <div class="name"><code>bool FdEntity::GetStats(struct stat& st)</code></div>
+            <div class="desc">
+                获得当前文件的attr (struct stat), 存到<code>st</code>中.
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回false</li>
+                <li><code>memset(&st, 0, sizeof(struct stat))</code></li>
+                <li><code>fstat(fd, &st)</code></li>
+            </ul>
         </div>
     </div>
 
