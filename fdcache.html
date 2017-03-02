@@ -34,28 +34,75 @@
         <div class="attrs">
             <div class="attr" id="FdManager-fent">
                 <div class="name"><code>std::map&lt;std::string, class FdEntity*&gt; fent;</code></div>
-                <span class="desc">
+                <div class="desc">
                     FdEntity map, [path] -> [FdEntity object].
                     NoCache模式下, path是随机的tmppath. 否则path是object实际路径
-                </span>
+                </div>
             </div>
             <div class="attr" id="FdManager-cache_dir">
                 <div class="name"><code>static std::string cache_dir;</code></div>
-                <span class="desc">
+                <div class="name"><code>static const char* GetCacheDir(void) { return FdManager::cache_dir.c_str(); }</code></div>
+                <div class="desc">
                     缓存路径
-                </span>
+                </div>
             </div>
         </div>
+
+        <div class="func" id="FdManager-SetCacheDir">
+            <div class="name"><code>bool FdManager::SetCacheDir(const char* dir)</code></div>
+            <div class="desc">
+                静态方法, 设置缓存目录.
+            </div>
+            <ul class="impl">
+                <li>如果<code>dir</code>为空指针或空字符串,<a href="#FdManager-cache_dir"><code>cache_dir = ""</code></a></li>
+                <li>否则
+                    <ul>
+                        <li>检查<code>dir</code>为目录, <code>stat(dir, &st); S_ISDIR(st.st_mode)</code></li>
+                        <li><a href="#FdManager-cache_dir"><code>cache_dir = dir</code></a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdManager-DeleteCacheDirectory">
+            <div class="name"><code>bool FdManager::DeleteCacheDirectory(void)</code></div>
+            <div class="desc">
+                静态方法, 清空缓存目录.
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#FdManager-cache_dir"><code>cache_dir</code></a>为空, 说明是no cache模式, 返回true</li>
+                <li>构造缓存目录路径<a href="#FdManager-MakeCachePath"><code>FdManager::MakeCachePath(NULL, cache_dir, false)</code></a></li>
+                <li>清空缓存目录<a><code>delete_files_in_dir(cache_dir.c_str(), true)</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdManager-MakeCachePath">
+            <div class="name"><code>bool FdManager::MakeCachePath(const char* path, string& cache_path, bool is_create_dir, bool is_mirror_path)</code></div>
+            <div class="desc">
+                静态方法, 构造缓存路径. <br/>
+                <code>path</code> 目标文件路径 <br/>
+                <code>cache_path</code> 缓存路径(用于返回) <br/>
+                <code>is_create_dir</code> default true, 是否新建路径上的文件夹 <br/>
+                <code>is_mirror_path</code> default false <br/>
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#FdManager-cache_dir"><code>cache_dir</code></a>为空, 说明是no cache模式, <code>cache_path = ""</code>直接返回</li>
+                <li>如果<code>is_mirror_path</code>, 构造路径为[cache_dir]/.[bucket].mirror/[path]</li>
+                <li>如果<code>!is_mirror_path</code>, 构造路径为[cache_dir]/.[bucket]/[path]</li>
+                <li>如果<code>is_create_dir</code>, 新建路径上的文件夹 <a><code>mkdirp(resolved_path + mydirname(path), 0777)</code></a></li>
+            </ul>
+        </div>
+
         <div class="func" id="FdManager-Open">
             <div class="name"><code>FdEntity* FdManager::Open(const char* path, headers_t* pmeta, ssize_t size, time_t time, bool force_tmpfile, bool is_create)</code></div>
             <div class="desc">
                 打开并返回一个FdEntity对象 <br/>
                 <code>path</code> object路径 <br/>
                 <code>pmeta</code> object的meta <br/>
-                <code>size</code> <br/>
-                <code>time</code> <br/>
-                <code>force_tmpfile</code> <br/>
-                <code>is_create</code> 当前没有对应的FdEntity时是否新建<br/>
+                <code>size</code> default -1 <br/>
+                <code>time</code> default -1 <br/>
+                <code>force_tmpfile</code> default false <br/>
+                <code>is_create</code> default false 当前没有对应的FdEntity时是否新建<br/>
             </div>
             <ul class="impl">
                 <li>在<a href="#FdManager-fent"><code>fent</code></a>中寻找path对应的FdEntity对象ent</li>
@@ -71,8 +118,27 @@
                 </li>
                 <li>执行FdEntity对象的打开方法. <a href="#FdEntity-Open"><code>ent->Open(pmeta, size, time)</code></a></li>
             </ul>
-            <div class="remark">
+        </div>
 
+        <div class="func" id="FdManager-ExistOpen">
+            <div class="name"><code>FdEntity* FdManager::ExistOpen(const char* path, int existfd, bool ignore_existfd)</code></div>
+            <div class="desc">
+                打开一个已经存在的FdEntity. <br/>
+                <code>path</code> 文件路径 <br/>
+                <code>existfd</code> default -1.
+                <code>ignore_existfd</code> default false.
+            </div>
+            <ul class="impl">
+                <li>根据路径<code>path</code>查找已经存在的FdEntity并打开. <a href="#FdManager-Open"><code>FdEntity* ent = Open(path, NULL, -1, -1, false, false);</code></a></li>
+                <li>如果上述结果返回NULL, 且<code>existfd</code>被设置, 或者<code>ignore_existfd</code>为真.
+                    <ul>
+                        <li>遍历<a href="#FdManager-fent"><code>fent</code></a>, 查找某一个打开的FdEntity, 其fd与<code>existfd</code>相等. 或者<code>ignore_existfd</code>为真</li>
+                        <li>检查该FdEntity的<code>path</code>是否与给定的<code>path</code>一致, 一致则打开并返回.</li>
+                    </ul>
+                </li>
+            </ul>
+            <div class="remark">
+                existfd和ignore_existfd的意义还未弄明白.
             </div>
         </div>
 
@@ -262,6 +328,23 @@
                 <li>设置修改标记<a href="#FdEntity-is_modify"><code>is_modify</code></a>为false</li>
                 <li>根据<code>pmeta</code>更新<a href="#FdEntity-orgmeta"><code>orgmeta</code></a>和<a href="#FdEntity-size_orgmeta"><code>size_orgmeta</code></a></li>
                 <li>如果<code>time</code>不为-1, <a href="#FdEntity-SetMtime"><code>SetMtime(time)</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-Write">
+            <div class="name"><code>ssize_t FdEntity::Write(const char* bytes, off_t start, size_t size)</code></div>
+            <div class="desc">
+                写文件, 写入<code>bytes</code>从<code>start</code>(bytes)开始的<code>size</code>个byte. 返回写入的字节数.
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回<code>-EBADF</code></li>
+                <li>如果文件大小比<code>start</code>要小, <a href="#PageList-Size"><code>pagelist.Size() < static_cast&lt;size_t&gt;(start)</code></a>.
+                    <ul>
+                        <li>扩充文件大小, <code>ftruncate(fd, static_cast&lt;size_t&gt;(start))</code></li>
+                        <li>扩展<a href="#FdEntity-pagelist">pagelist</a>的大小, <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus(static_cast&lt;off_t&gt;(pagelist.Size()), static_cast&lt;size_t&gt;(start) - pagelist.Size(), false);</code></a></li>
+                    </ul>
+                </li>
+                ...
             </ul>
         </div>
 
@@ -576,6 +659,18 @@ typedef std::list&lt;struct fdpage*&gt; fdpage_list_t;
                 // 缓存文件的stat文件的文件描述符 (file descriptor), -1表示还未打开stat文件 <br/>
                 <span class="name"><code>int GetFd(void) const { return fd; }</code></span>
             </div>
+        </div>
+
+        <div class="func" id="CacheFileStat-DeleteCacheFileStatDirectory">
+            <div class="name"><code>bool CacheFileStat::DeleteCacheFileStatDirectory(void)</code></div>
+            <div class="desc">
+                静态方法, 清空缓存stat文件目录
+            </div>
+            <ul class="impl">
+                <li>如果缓存目录<a href="#FdManager-cache_dir"><code>FdManager::GetCacheDir()</code></a>或者bucket未设置, 直接返回.</li>
+                <li>构造缓存stat目录<code>top_path</code>为/[cache_dir]/.[bucket].stat</li>
+                <li><a><code>delete_files_in_dir(top_path.c_str(), true)</code></a></li>
+            </ul>
         </div>
 
         <div class="func" id="CacheFileStat-MakeCacheFileStatPath">

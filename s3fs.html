@@ -43,9 +43,9 @@
                 <a href="#ref1">[1]</a>
             </div>
             <ul class="impl">
-                <li>如果参数中指定了删除缓存, 则删除缓存目录.
+                <li>如果参数中指定了清空缓存, 则清空缓存目录.
                     <ul>
-                        <li><a><code>CacheFileStat::DeleteCacheFileStatDirectory()</code></a></li>
+                        <li><a href="fdcache.html#CacheFileStat-DeleteCacheFileStatDirectory"><code>CacheFileStat::DeleteCacheFileStatDirectory()</code></a></li>
                         <li><a><code>FdManager::DeleteCacheDirectory()</code></a></li>
                     </ul>
                 </li>
@@ -62,6 +62,8 @@
             <div class="name"><code>static int s3fs_open(const char* path, struct fuse_file_info* fi)</code></div>
             <div class="desc">
                 fuse接口函数, 打开文件. <br/>
+                <code>path</code> 文件的路径 <br/>
+                <code>fi</code> fuse提供的用于描述文件的结构体 <br/>
                 Open a file. If you aren't using file handles, this function should just check for existence and permissions and return either success or an error code.
                 If you use file handles, you should also allocate any necessary structures and set fi->fh.
                 In addition, fi has some other fields that an advanced filesystem might find useful; see the structure definition in fuse_common.h for very brief commentary.
@@ -86,6 +88,27 @@
             </ul>
         </div>
 
+        <div class="func" id="s3fs_write">
+            <div class="name"><code>static int s3fs_write(const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi)</code></div>
+            <div class="desc">
+                fuse接口函数, 写入文件. <br/>
+                <code>path</code> 文件的路径 <br/>
+                <code>buf</code> 待写入的内容buffer <br/>
+                <code>size</code> 写入的长度 (bytes) <br/>
+                <code>offset</code> 偏移量 (bytes) <br/>
+                <code>fi</code> fuse提供的用于描述文件的结构体 <br/>
+                Write size bytes from the given file into the buffer buf, beginning offset bytes into the file. See write(2) for full details.
+                Returns the number of bytes transferred. Required for any sensible filesystem.
+                <a href="#ref1">[1]</a>
+            </div>
+            <ul class="impl">
+                <li>根据路径和fd获得打开的FdEntity<a href="fdcache.html#FdManager-ExistOpen"><code>FdManager::get()->ExistOpen(path, static_cast&lt;int&gt;(fi->fh))</code></a></li>
+                <li>检查fd是否一致, 不一致给出Warning. <code>ent->GetFd() != static_cast&lt;int&gt;(fi->fh)</code></li>
+                <li>写文件<a href="fdcache.html#FdEntity-Write"><code>res = ent->Write(buf, offset, size)</code></a></li>
+                <li><a href="fdcache.html#FdManager-Close"><code>FdManager::get()->Close(ent)</code></a></li>
+            </ul>
+        </div>
+
         <div class="func">
             <div class="name"><code>static int s3fs_getattr(const char* path, struct stat* stbuf)</code></div>
             <div class="desc">
@@ -102,8 +125,8 @@
                 <li>检查父目录的执行权限 <a href="#check_parent_object_access"><code>check_parent_object_access(path, X_OK)</code></a>
                 </li>
                 <li>检查文件是否存在 <a><code>check_object_access(path, F_OK, stbuf)</code></a></li>
-                <li>通过FdManager单例打开一个FdEntity实例<a><code>ent = FdManager::get()->ExistOpen(path)</code></a></li>
-                <li>通过FdEntity获取文件的attributes(struct stat)信息(struct stat)<a><code>ent->GetStats(tmpstbuf)</code></a></li>
+                <li>通过FdManager单例打开一个已经存在的FdEntity实例<a href="fdcache.html#FdManager-ExistOpen"><code>ent = FdManager::get()->ExistOpen(path)</code></a></li>
+                <li>通过FdEntity获取文件的attributes(struct stat)信息(struct stat)<a href="fdcache.html#FdEntity-GetStats"><code>ent->GetStats(tmpstbuf)</code></a></li>
                 <li>根据获取到的信息填充stbuf (只用了st_size信息, st_blksize填充4096, st_blocks填充st_size/512+1)</li>
                 <li>关闭FdEntity实例</li>
             </ul>
