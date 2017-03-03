@@ -227,17 +227,17 @@
         <div class="attrs">
             <div class="attr"><code>typedef std::vector&lt;std::string&gt; etaglist_t</code></div>
 
-            <div class="attr" id="FdEntity-pagelist"><span class="name"><code>PageList        pagelist;        </code></span> </div>
-            <div class="attr" id="FdEntity-refcnt"><span class="name"><code>int             refcnt;          </code></span>// reference count </div>
-            <div class="attr" id="FdEntity-path"><span class="name"><code>std::string     path;            </code></span>// object path </div>
+            <div class="attr" id="FdEntity-pagelist"><span class="name"><code>PageList        pagelist;        </code></span>// 分页表, 用于标记文件个部分的加载状态. </div>
+            <div class="attr" id="FdEntity-refcnt"><span class="name"><code>int             refcnt;          </code></span>// reference count, 引用数 </div>
+            <div class="attr" id="FdEntity-path"><span class="name"><code>std::string     path;            </code></span>// object path, 路径 </div>
             <div class="attr" id="FdEntity-cachepath"><span class="name"><code>std::string     cachepath;       </code></span>// local cache file path (if this is empty, does not load/save pagelist.)</div>
 
             <div class="attr" id="FdEntity-mirrorpath"><span class="name"><code>std::string     mirrorpath;      </code></span>// mirror file path to local cache file path </div>
             <div class="attr" id="FdEntity-fd"><span class="name"><code>int             fd;              </code></span>// file descriptor(tmp file or cache file) </div>
             <div class="attr" id="FdEntity-pfile"><span class="name"><code>FILE*           pfile;           </code></span>// file pointer(tmp file or cache file) </div>
-            <div class="attr" id="FdEntity-is_modify"><span class="name"><code>bool            is_modify;       </code></span>// if file is changed, this flag is true </div>
-            <div class="attr" id="FdEntity-orgmeta"><span class="name"><code>headers_t       orgmeta;         </code></span>// original headers at opening </div>
-            <div class="attr" id="FdEntity-size_orgmeta"><span class="name"><code>size_t          size_orgmeta;    </code></span>// original file size in original headers </div>
+            <div class="attr" id="FdEntity-is_modify"><span class="name"><code>bool            is_modify;       </code></span>// if file is changed, this flag is true, 标记文件local版本和云端版本是否有差别 </div>
+            <div class="attr" id="FdEntity-orgmeta"><span class="name"><code>headers_t       orgmeta;         </code></span>// original headers at opening 云端存储的object meta</div>
+            <div class="attr" id="FdEntity-size_orgmeta"><span class="name"><code>size_t          size_orgmeta;    </code></span>// original file size in original headers 云端文件的大小 </div>
 
             <div class="attr" id="FdEntity-upload_id"><span class="name"><code>std::string     upload_id;       </code></span>// for no cached multipart uploading when no disk space </div>
             <div class="attr" id="FdEntity-etaglist"><span class="name"><code>etaglist_t      etaglist;        </code></span>// for no cached multipart uploading when no disk space </div>
@@ -381,7 +381,7 @@
                 <code>force_load</code> 是否强制从云端加载 <br/>
             </div>
             <ul class="impl">
-                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回<code>-EBADF</code></li>
+                <li>如果<a href="#FdEntity-fd"><code>fd == -1</code></a>, 返回<code>-EBADF</code></li>
                 <li>如果<code>force_load</code>, 设置读取部分的loaded状态为false从而强制重新从云端加载. <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus(start, size, false);</code></a></li>
                 <li>如果有需要从云端加载的内容, (<a href="#PageList-GetTotalUnloadedPageSize"><code>0 < pagelist.GetTotalUnloadedPageSize(start, size)</code></a>),
                     <ul>
@@ -415,7 +415,7 @@
                 写文件, 写入<code>bytes</code>从<code>start</code>(bytes)开始的<code>size</code>个byte. 返回写入的字节数.
             </div>
             <ul class="impl">
-                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回<code>-EBADF</code></li>
+                <li>如果<a href="#FdEntity-fd"><code>fd == -1</code></a>, 返回<code>-EBADF</code></li>
                 <li>如果文件大小比<code>start</code>要小, <a href="#PageList-Size"><code>pagelist.Size() < static_cast&lt;size_t&gt;(start)</code></a>.
                     <ul>
                         <li>扩充文件大小, <code>ftruncate(fd, static_cast&lt;size_t&gt;(start))</code></li>
@@ -457,13 +457,64 @@
             </ul>
         </div>
 
+        <div class="func" id="FdEntity-RowFlush">
+            <div class="name"><code>int FdEntity::RowFlush(const char* tpath, bool force_sync)</code></div>
+            <ul class="impl">
+                <li>如果<a href="#FdEntity-fd"><code>fd == -1</code></a>, 返回<code>-EBADF</code></li>
+                <li>如果不是强制同步(<code>force_sync</code>)且文件未修改(<a href="#FdEntity-is_modify"><code>is_modify</code></a>), 则直接返回0</li>
+                <li>如果还存在要从云端加载的部分, <a href="#PageList-GetTotalUnloadedPageSize"><code>restsize = pagelist.GetTotalUnloadedPageSize()</code></a>
+                    <ul>
+                        <li>如果未开始multipart uploading (<a href="#FdEntity-upload_id"><code>upload_id.length() == 0</code></a>,
+                            <ul>
+                                <li>如果磁盘空间足够, <a href="#FdManager-IsSafeDiskSpace"><code>FdManager::IsSafeDiskSpace(NULL, restsize)</code></a>, 则加载剩余内容, <a href="#FdEntity-Load"><code>Load()</code></a></li>
+                                <li>否则(磁盘空间不够), 开始加载同时multipart uploading, <a href="#FdEntity-NoCacheLoadAndPost"><code>NoCacheLoadAndPost()</code></a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li>如果不是multipart uploading模式 (<a href="#FdEntity-upload_id"><code>upload_id.length() == 0</code></a>,
+                    <ul>
+                        <li>如果文件大小太大, 超过<a href="curl.html#S3fsCurl-multipart_size"><code>MAX_MULTIPART_CNT * S3fsCurl::GetMultipartSize()</code></a>, 返回<code>-ENOTSUP</code></li>
+                        <li>获取文件attributes, <code>fstat(fd, &st)</code>, 用于稍后更新文件大小记录</li>
+                        <li>文件指针置于头部, lseek(fd, 0, SEEK_SET)</li>
+                        <li>如果文件大小超过<a href="curl.html#S3fsCurl-multipart_size"><code>2 * S3fsCurl::GetMultipartSize()</code></a>, 且没有被全局禁止multipart uploading,
+                            <ul>
+                                <li>若curl读写请求超时时间<a href="curl.html#S3fsCurl-readwrite_timeout"><code>readwrite_timeout</code></a>大于120s, 设置超时时间为120s</li>
+                                <li><a href="curl.html#S3fsCurl-ParallelGetObjectRequest"><code>S3fsCurl::ParallelGetObjectRequest(path.c_str(), fd, (*iter)->offset, need_load_size)</code></a></li>
+                                <li>还原超时时间设置.</li>
+                            </ul>
+                        </li>
+                        <li>否则, 单一请求上传.
+                            <ul>
+                                <li><a href="curl.html#S3fsCurl-S3fsCurl"><code>S3fsCurl s3fscurl(true);</code></a></li>
+                                <li><a href="curl.html#S3fsCurl-PutRequest"><code>s3fscurl.PutRequest(tpath ? tpath : path.c_str(), orgmeta, fd);</code></a></li>
+                            </ul>
+                        </li>
+                        <li>文件指针置于头部, lseek(fd, 0, SEEK_SET)</li>
+                        <li>更新云端文件大小记录, <a href="#FdEntity-size_orgmeta"><code>size_orgmeta = static_cast&lt;size_t&gt;(st.st_size);</code></a></li>
+                    </ul>
+                </li>
+                <li>否则(是multipart uploading模式), 则上传剩余的部分.
+                    <ul>
+                        <li>如果<a href="#FdEntity-mp_size"><code>mp_size > 0</code></a>, 上传当前part, <a href="#FdEntity-NoCacheMultipartPost"><code>NoCacheMultipartPost(fd, mp_start, mp_size)</code></a></li>
+                        <li>上传剩余部分, <a href="#FdEntity-NoCacheCompleteMultipartPost"><code>NoCacheCompleteMultipartPost()</code></a></li>
+                        <li><code>ftruncate(fd, 0)</code></li>
+                    </ul>
+                </li>
+                <li>重置修改标记<a href="#FdEntity-is_modify"><code>is_modify</code></a>为false.</li>
+            </ul>
+            <div class="remark">
+                NoCacheMultipar upload完为什么要truncate file to zero? 不用将文件再truncate改为正确的长度?
+            </div>
+        </div>
+
         <div class="func" id="FdEntity-Load">
             <div class="name"><code>int FdEntity::Load(off_t start, size_t size)</code></div>
             <div class="desc">
                 从云上下载文件内容, 从<code>start</code> (bytes)位置开始, 大小<code>size</code> bytes
             </div>
             <ul class="impl">
-                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回<code>-EBADF</code></li>
+                <li>如果<a href="#FdEntity-fd"><code>fd == -1</code></a>, 返回<code>-EBADF</code></li>
                 <li>查找所有要加载的片段, <a href="#PageList-GetUnloadedPages"><code>pagelist.GetUnloadedPages(unloaded_list, start, size)</code></a></li>
                 <li>遍历所有要加载的片段, 对于每一个片段<code>*iter</code>,
                     <ul>
@@ -565,7 +616,7 @@
                 获得当前文件的attr (struct stat), 存到<code>st</code>中.
             </div>
             <ul class="impl">
-                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回false</li>
+                <li>如果<a href="#FdEntity-fd"><code>fd == -1</code></a>, 返回false</li>
                 <li><code>memset(&st, 0, sizeof(struct stat))</code></li>
                 <li><code>fstat(fd, &st)</code></li>
             </ul>
@@ -574,7 +625,7 @@
         <div class="func" id="FdEntity-GetSize">
             <div class="name"><code>bool FdEntity::GetSize(size_t& size)</code></div>
             <ul class="impl">
-                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回false</li>
+                <li>如果<a href="#FdEntity-fd"><code>fd == -1</code></a>, 返回false</li>
                 <li><a href="#PageList-Size"><code>size = pagelist.Size()</code></a></li>
             </ul>
         </div>

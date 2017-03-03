@@ -70,7 +70,7 @@
                 <a href="#ref1">[1]</a>
             </div>
             <ul class="impl">
-                <li>删除文件的stat缓存, 以保证获得最新的stat信息. <a href="cache.html#DelStat"><code>StatCache::getStatCacheData()->DelStat(path);</code></a></li>
+                <li>删除文件的attributes缓存, 以保证获得最新的attributes信息. <a href="cache.html#DelStat"><code>StatCache::getStatCacheData()->DelStat(path);</code></a></li>
                 <li>检查权限
                     <ul>
                         <li>检查对上级目录的权限, <a href="#check_parent_object_access"><code>check_parent_object_access(path, X_OK)</code></a></li>
@@ -80,10 +80,10 @@
                     </ul>
                 </li>
                 <li>如果O_TRUNC标志(truncate size to 0)被设置, 则设置st的st_size为0, 且标记后续要执行flush操作</li>
-                <li>如果文件不是常规文件或者是软连接(这个或者没必要?), 设置st的st_mtime为-1</li>
+                <li>如果文件不是常规文件或者是软连接(这个"或者"没必要?), 设置st的st_mtime为-1</li>
                 <li><a href="#get_object_attribute"><code>get_object_attribute(path, NULL, &meta, true, NULL, true); // no truncate cache</code></a></li>
                 <li><a href="fdcache.html#FdManager-Open"><code>ent = FdManager::get()->Open(path, &meta, static_cast&lt;ssize_t&gt;(st.st_size), st.st_mtime, false, true)</code></a></li>
-                <li>如果需要执行flush操作, <a><code>ent->RowFlush(path, true)</code></a></li>
+                <li>如果需要执行flush操作, <a href="fdcache.html#FdEntity-RowFlush"><code>ent->RowFlush(path, true)</code></a></li>
                 <li>设置fuse_file_info的fh(file handler), <code>fi->fh = ent->GetFd()</code></li>
             </ul>
         </div>
@@ -288,7 +288,7 @@
                 <li>如果overcheck被设置且上述请求失败, 检查是否为各种形式的目录</li>
                 <li>各种check之后依然不成功, 说明失败, 加入StatCache的no object cache并返回. <a><code>StatCache::getStatCacheData()->AddNoObjectCache(strpath)</code></a>
                 </li>
-                <li>将meta信息转换成文件stat信息, 根据add_no_truncate_cache参数和CacheSize的情况决定是否缓存</li>
+                <li>将meta信息转换成文件attributes, 根据add_no_truncate_cache参数和CacheSize的情况决定是否缓存</li>
             </ul>
             <div class="remark">
                 关于overcheck的分支选择有点奇怪, 判断条件是overcheck && 0 != result, result是REST接口请求header信息的结果. <br/>
