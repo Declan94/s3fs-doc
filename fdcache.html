@@ -64,6 +64,13 @@
             </ul>
         </div>
 
+        <div class="func" id="FdManager-IsSafeDiskSpace">
+            <div class="name"><code>bool FdManager::IsSafeDiskSpace(const char* path, size_t size)</code></div>
+            <div class="desc">
+                静态方法, 检查磁盘空间
+            </div>
+        </div>
+
         <div class="func" id="FdManager-DeleteCacheDirectory">
             <div class="name"><code>bool FdManager::DeleteCacheDirectory(void)</code></div>
             <div class="desc">
@@ -108,10 +115,10 @@
                 <li>在<a href="#FdManager-fent"><code>fent</code></a>中寻找path对应的FdEntity对象ent</li>
                 <li>如果未找到, is_create为false则返回NULL, 为true则新建FdEntity如下
                     <ul>
-                        <li>构造缓存路径并创建其父目录<a href="#MakeCachePath"><code>FdManager::MakeCachePath(path, cache_path, true)</code></a></li>
+                        <li>构造缓存路径并创建其父目录<a href="#FdManager-MakeCachePath"><code>FdManager::MakeCachePath(path, cache_path, true)</code></a></li>
                         <li>新创建FdEntity对象. <a href="#FdEntity-FdEntity"><code>ent = new FdEntity(path, cache_path.c_str())</code></a></li>
                         <li>将FdEntity对象存到<a href="#FdManager-fent"><code>fent</code></a>中,
-                            如果cache_path为空(即不缓存模式), key通过<a href="#MakeCachePath"><code>FdManager::MakeRandomTempPath(path, tmppath)</code></a>产生.
+                            如果cache_path为空(即不缓存模式), key通过<a href="#FdManager-MakeCachePath"><code>FdManager::MakeRandomTempPath(path, tmppath)</code></a>产生.
                             否则key即为<code>path</code>
                         </li>
                     </ul>
@@ -142,7 +149,7 @@
             </div>
         </div>
 
-        <div class="func" id="MakeRandomTempPath">
+        <div class="func" id="FdManager-MakeRandomTempPath">
             <div class="name"><code>bool FdManager::MakeRandomTempPath(const char* path, string& tmppath)</code></div>
             <div class="desc">
                 随机一个临时路径. <br />
@@ -175,25 +182,20 @@
             </div>
         </div>
 
-        <div class="func" id="MakeCachePath">
-            <div class="name"><code>bool FdManager::MakeCachePath(const char* path, string& cache_path, bool is_create_dir, bool is_mirror_path)</code></div>
+        <div class="func" id="FdManager-ChangeEntityToTempPath">
+            <div class="name"><code>bool FdManager::ChangeEntityToTempPath(FdEntity* ent, const char* path)</code></div>
             <div class="desc">
-                <code>path</code> 目标object的路径<br/>
-                <code>cache_path</code> 用于返回缓存路径 <br/>
-                <code>is_create_dir</code> default true 是否创建父级目录 <br/>
-                <code>is_mirror_path</code> default false 是否镜像路径 <br/>
+                将<code>ent</code>在<a href="#FdManager-fent"><code>fent</code></a>中的key换成temp path
             </div>
             <ul class="impl">
-                <li>如果<a href="#FdManager-cache_dir"><code>FdManager::cache_dir</code></a>为空则直接返回空字符串</li>
-                <li>构造resolved_path如下
-                    <ul>
-                        <li>如果不是镜像路径, resolved_path构造为 [FdManager::cache_dir]/[bucket] </li>
-                        <li>如果是镜像路径, resolved_path构造为 [FdManager::cache_dir]/.[bucket].mirror </li>
-                    </ul>
-                </li>
-                <li>如果<code>is_create_dir</code>, 新建父级目录, 相当于执行mkdir -p `dirname $resolved_path/$path`</li>
-                <li>将<code>cache_path</code>赋值为resolved_path+path</li>
+                <li>遍历<a href="#FdManager-fent"><code>fent</code></a>找到<code>ent</code></li>
+                <li><code>fent.erase(iter++)</code></li>
+                <li><a href="#FdManager-MakeRandomTempPath"><code>FdManager::MakeRandomTempPath(path, tmppath)</code></a></li>
+                <li><code>fent[tmppath] = ent</code></li>
             </ul>
+            <div class="remark">
+                找到ent后并没有退出循环, 而是继续遍历, 难道fent中会有多个同样的ent元素? 而且这个函数永远返回false.
+            </div>
         </div>
 
     </div>
@@ -202,6 +204,8 @@
         <h3>FdEntity</h3>
 
         <div class="attrs">
+            <div class="attr"><code>typedef std::vector&lt;std::string&gt; etaglist_t</code></div>
+
             <div class="attr" id="FdEntity-pagelist"><span class="name"><code>PageList        pagelist;        </code></span> </div>
             <div class="attr" id="FdEntity-refcnt"><span class="name"><code>int             refcnt;          </code></span>// reference count </div>
             <div class="attr" id="FdEntity-path"><span class="name"><code>std::string     path;            </code></span>// object path </div>
@@ -331,6 +335,41 @@
             </ul>
         </div>
 
+        <div class="func" id="FdEntity-Read">
+            <div class="name"><code>ssize_t FdEntity::Read(char* bytes, off_t start, size_t size, bool force_load)</code></div>
+            <div class="desc">
+                读文件, 从<code>start</code>开始读取<code>size</code> bytes. <br/>
+                <code>force_load</code> 是否强制从云端加载 <br/>
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回<code>-EBADF</code></li>
+                <li>如果<code>force_load</code>, 设置读取部分的loaded状态为false从而强制重新从云端加载. <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus(start, size, false);</code></a></li>
+                <li>如果有需要从云端加载的内容, (<a href="#PageList-GetTotalUnloadedPageSize"><code>0 < pagelist.GetTotalUnloadedPageSize(start, size)</code></a>),
+                    <ul>
+                        <li>如果磁盘空间不足, (<a href="#FdManager-IsSafeDiskSpace"><code>!FdManager::IsSafeDiskSpace(NULL, size)</code></a>),
+                            这里传入<code>size</code>是否不合适? 应该传入需要加载的大小? <br/>
+                            且文件未被修改, (<a href="#FdEntity-is_modify"><code>!is_modify</code></a>), <br/>
+                            则清空文件缓存以腾出磁盘空间.
+                            <ul>
+                                <li>全部标记为unloaded<a href="#PageList-Init"><code>pagelist.Init(pagelist.Size(), false)</code></a></li>
+                                <li>truncate缓存文件, <code>ftruncate(fd, 0); ftruncate(fd, pagelist.Size());</code></li>
+                            </ul>
+                            (若磁盘空间不足而文件已经被修改, 则读文件操作只能以失败告终)
+                        </li>
+                    </ul>
+                </li>
+                <li>计算加载的大小<code>load_size</code>, 因为读取一般都是连续操作, 所以一次性加载尽量多的内容. <br/>
+                    <ul>
+                        <li>一次最多加载的大小为<a href="curl.html#S3fsCurl-multipartsize"><code>prefetch_max_size = S3fsCurl::GetMultipartSize() * S3fsCurl::GetMaxParallelCount()</code></a></li>
+                        <li>如果从<code>start</code>开始加载<code>prefetch_max_size</code>大小的内容未超出文件实际总长度<a href="#PageList-Size"><code>pagelist.Size()</code></a>, 则<code>load_size = prefetch_max_size</code></li>
+                        <li>否则<code>load_size = pagelist.Size() - start</code></li>
+                    </ul>
+                </li>
+                <li>加载内容, <a href="#FdEntity-Load"><code>Load(start, load_size)</code></a></li>
+                <li>读文件, <code>rsize = pread(fd, bytes, size, start)</code></li>
+            </ul>
+        </div>
+
         <div class="func" id="FdEntity-Write">
             <div class="name"><code>ssize_t FdEntity::Write(const char* bytes, off_t start, size_t size)</code></div>
             <div class="desc">
@@ -344,6 +383,96 @@
                         <li>扩展<a href="#FdEntity-pagelist">pagelist</a>的大小, <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus(static_cast&lt;off_t&gt;(pagelist.Size()), static_cast&lt;size_t&gt;(start) - pagelist.Size(), false);</code></a></li>
                     </ul>
                 </li>
+                <li>如果没有开始上传(<a href="#FdEntity-upload_id"><code>0 == upload_id.length()</code></a>),
+                    <ul>
+                        <li>计算需要的磁盘空间, <a href="#PageList-GetTotalUnloadedPageSize"><code>size_t restsize = pagelist.GetTotalUnloadedPageSize(0, start) + size;</code></a> </li>
+                        <li>如果磁盘空间足够(<a href="#FdManager-IsSafeDiskSpace"><code>FdManager::IsSafeDiskSpace(NULL, restsize)</code>)</a>,
+                            则加载从0一直到start位置的数据. <a href="#FdEntity-Load"><code>Load(0, static_cast&lt;size_t&gt;(start)</code></a>
+                        </li>
+                        <li>否则(磁盘空间不够),
+                            <ul>
+                                <li><a href="#FdEntity-NoCachePreMultipartPost"><code>NoCachePreMultipartPost()</code></a></li>
+                                <li><a href=#FdEntity-NoCacheLoadAndPost"><code>NoCacheLoadAndPost(0, start)</code></a></li>
+                                <li><a href="#FdEntity-mp_start"><code>mp_start = start</code></a></li>
+                                <li><a href="#FdEntity-mp_size"><code>mp_size = 0</code></a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li>写文件, <code>wsize = pwrite(fd, bytes, size, start)</code></li>
+                <li><a href="#FdEntity-is_modify"><code>is_modify = true</code></a></li>
+                <li>如果<code>0 < wsize</code>, 设置写入的部分loaded标志为true. <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus(start, static_cast&lt;size_t&gt;(wsize), true)</code></a></li>
+                <li>如果<code>0 < upload_id.length()</code>, 正在multipart上传, 说明需要将新写入的内容也上传.
+                    <ul>
+                        <li><a href="#FdEntity-mp_size"><code>mp_size += static_cast&lt;size_t&gt;(wsize)</code></a></li>
+                        <li>如果<a href="curl.html#S3fsCurl-multipart_size"><code>static_cast&lt;size_t&gt;(S3fsCurl::GetMultipartSize()) <= mp_size</code></a>
+                            <ul>
+                                <li><a href="#FdEntity-NoCacheMultipartPost"><code>NoCacheMultipartPost(fd, mp_start, mp_size)</code></a></li>
+                                <li>清空文件但保持长度, 不占用磁盘空间. <code>ftruncate(fd, 0); ftruncate(fd, mp_start+mp_size);</code></li>
+                                <li><a href="#FdEntity-mp_start"><code>mp_start += mp_size</code></a></li>
+                                <li><a href="#FdEntity-mp_size"><code>mp_size = 0</code></a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-Load">
+            <div class="name"><code>int FdEntity::Load(off_t start, size_t size)</code></div>
+            <div class="desc">
+                从云上下载文件内容, 从<code>start</code> (bytes)位置开始, 大小<code>size</code> bytes
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#FdEntity-fd"><code>-1 == fd</code></a>, 返回<code>-EBADF</code></li>
+                <li>查找所有要加载的片段, <a href="#PageList-GetUnloadedPages"><code>pagelist.GetUnloadedPages(unloaded_list, start, size)</code></a></li>
+                <li>遍历所有要加载的片段, 对于每一个片段<code>*iter</code>,
+                    <ul>
+                        <li>根据<a href="#FdEntity-orgmeta"><code>size_orgmeta</code></a>计算需要下载的大小<code>need_load_size</code>和超出部分的大小<code>over_size</code></li>
+                        <li>如果可以使用multipart, 且<code>2 * S3fsCurl::GetMultipartSize() < need_load_size</code>, 则采用multipart方式下载.
+                            <ul>
+                                <li>若curl读写请求超时时间<a href="curl.html#S3fsCurl-readwrite_timeout"><code>readwrite_timeout</code></a>大于120s, 设置超时时间为120s</li>
+                                <li><a href="curl.html#S3fsCurl-ParallelGetObjectRequest"><code>S3fsCurl::ParallelGetObjectRequest(path.c_str(), fd, (*iter)->offset, need_load_size)</code></a></li>
+                                <li>还原超时时间设置.</li>
+                            </ul>
+                        </li>
+                        <li>否则使用single request下载, <a href="curl.html#S3fsCurl-GetObjectRequest"><code>s3fscurl.GetObjectRequest(path.c_str(), fd, (*iter)->offset, need_load_size)</code></a></li>
+                        <li>对于超出部分<code>over_size</code>, 用0填充文件. <a href="#FdEntity-FillFile"><code>FdEntity::FillFile(fd, 0, over_size, (*iter)->offset + need_load_size)</code></a></li>
+                        <li>设置此部分加载状态为true, <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus((*iter)->offset, static_cast&lt;off_t&gt;((*iter)->bytes), true)</code></a> </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-NoCachePreMultipartPost">
+            <div class="desc">
+                开始multipart上传请求
+            </div>
+            <ul class="impl">
+                <li>初始化, <a href="#FdEntity-upload_id"><code>upload_id.erase()</code></a></li>
+                <li>初始化, <a href="#FdEntity-etaglist"><code>etaglist.clear()</code></a></li>
+                <li><a href="curl.html#S3fsCurl-S3fsCurl"><code>S3fsCurl s3fscurl(true)</code></a></li>
+                <li><a href="curl.html#S3fsCurl-PreMultipartPostRequest"><code>s3fscurl.PreMultipartPostRequest(path.c_str(), orgmeta, upload_id, false)</code></a></li>
+                <li><a href="curl.html#S3fsCurl-DestroyCurlHandle"><code>s3fscurl.DestroyCurlHandle()</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-NoCacheLoadAndPost">
+            <div class="name"><code>int FdEntity::NoCacheLoadAndPost(off_t start, size_t size)</code></div>
+            <div class="desc">
+                在磁盘空间不足的情况下调用此方法, 加载object内容同时上传.
+            </div>
+            <ul class="impl">
+                <li>此方法被调用说明缓存文件不会再被用到, 故清除缓存文件.
+                    <ul>
+                        <li><a href="#FdManager-DeleteCacheFile"><code>FdManager::DeleteCacheFile(path.c_str())</code></a></li>
+                        <li><a href="#FdEntity-cachepath"><code>cachepath.erase()</code></a></li>
+                        <li><a href="#FdEntity-mirrorpath"><code>mirrorpath.erase()</code></a></li>
+                    </ul>
+                </li>
+                <li>将此Entity在<code>FdManager</code>中的mapping key改成随机路径, <a href="#FdManager-ChangeEntityToTempPath"><code>FdManager::get()->ChangeEntityToTempPath(this, path.c_str())</code></a></li>
+                <li>打开临时文件<code>ptmpfp = tmpfile(); tmpfd = fileno(ptmpfp);</code></li>
+                <li></li>
                 ...
             </ul>
         </div>
@@ -426,9 +555,20 @@
             </ul>
         </div>
 
+        <div class="func" id="FdEntity-FillFile">
+            <div class="name"><code>int FdEntity::FillFile(int fd, unsigned char byte, size_t size, off_t start)</code></div>
+            <div class="desc">
+                静态方法, 填充文件. <br/>
+                <code>fd</code> 文件描述符 <br/>
+                <code>byte</code> 填充字节 <br/>
+                <code>size</code> 填充大小 <br/>
+                <code>start</code> 起始位置 <br/>
+            </div>
+        </div>
+
     </div>
 
-    <div class="section">
+    <div class="section" id="PageList">
         <h3>PageList</h3>
         <div class="desc">
             维护一个页链表, 标记各个页的起始位置, 长度, 是否已加载. 用于分页加载和上传object.
@@ -570,7 +710,7 @@ typedef std::list&lt;struct fdpage*&gt; fdpage_list_t;
             </div>
         </div>
 
-        <div class="func" id="FindUnloadedPage">
+        <div class="func" id="PageList-FindUnloadedPage">
             <div class="name"><code>bool PageList::FindUnloadedPage(off_t start, off_t& resstart, size_t& ressize) const</code></div>
             <div class="desc">
                 查找<code>start</code>位置之后第一个未加载的的分页. <code>start</code>是指该分页包含<code>start</code>位置以后的部分.
@@ -579,7 +719,7 @@ typedef std::list&lt;struct fdpage*&gt; fdpage_list_t;
             </div>
         </div>
 
-        <div class="func" id="GetTotalUnloadedPageSize">
+        <div class="func" id="PageList-GetTotalUnloadedPageSize">
             <div class="name"><code>size_t PageList::GetTotalUnloadedPageSize(off_t start, size_t size) const</code></div>
             <div class="desc">
                 统计从<code>start</code>开始长度为<code>size</code>的片段内未加载的部分的总大小. <br/>
@@ -587,7 +727,7 @@ typedef std::list&lt;struct fdpage*&gt; fdpage_list_t;
             </div>
         </div>
 
-        <div class="func" id="GetUnloadedPages">
+        <div class="func" id="PageList-GetUnloadedPages">
             <div class="name"><code>int PageList::GetUnloadedPages(fdpage_list_t& unloaded_list, off_t start, size_t size) const</code></div>
             <div class="desc">
                 计算从<code>start</code>开始长度为<code>size</code>的片段内, 未加载的分页列表<code>unloaded_list</code>. <br/>
@@ -641,7 +781,7 @@ typedef std::list&lt;struct fdpage*&gt; fdpage_list_t;
 
     </div>
 
-    <div class="section">
+    <div class="section" id="CacheFileStat">
         <h3>CacheFileStat</h3>
 
         <div class="desc">
