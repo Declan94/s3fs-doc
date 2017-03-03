@@ -88,10 +88,34 @@
             </ul>
         </div>
 
+        <div class="func" id="s3fs_read">
+            <div class="name"><code>static int s3fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi)</code></div>
+            <div class="desc">
+                fuse接口函数, 读文件. <br/>
+                <code>path</code> 文件的路径 <br/>
+                <code>buf</code> 读取后存储位置 <br/>
+                <code>size</code> 读取的长度 (bytes) <br/>
+                <code>offset</code> 偏移量 (bytes) <br/>
+                <code>fi</code> fuse提供的用于描述文件的结构体 <br/>
+                Read size bytes from the given file into the buffer buf, beginning offset bytes into the file.
+                See read(2) for full details. Returns the number of bytes transferred, or 0 if offset was at or beyond the end of the file.
+                Required for any sensible filesystem.
+                <a href="#ref1">[1]</a>
+            </div>
+            <ul class="impl">
+                <li>根据路径和fd获得打开的FdEntity<a href="fdcache.html#FdManager-ExistOpen"><code>FdManager::get()->ExistOpen(path, static_cast&lt;int&gt;(fi->fh))</code></a></li>
+                <li>检查fd是否一致, 不一致给出Warning. <code>ent->GetFd() != static_cast&lt;int&gt;(fi->fh)</code></li>
+                <li>检查文件大小<a href="fdcache.html#FdEntity-GetSize"><code>ent->GetSize(realsize)</code></a>, 如果<code>realsize</code>不大于0, 返回0.</li>
+                <li>读文件<a href="fdcache.html#FdEntity-Read"><code>ent->Read(buf, offset, size, false)</code></a></li>
+                <li><a href="fdcache.html#FdManager-Close"><code>FdManager::get()->Close(ent)</code></a></li>
+            </ul>
+        </div>
+
+
         <div class="func" id="s3fs_write">
             <div class="name"><code>static int s3fs_write(const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi)</code></div>
             <div class="desc">
-                fuse接口函数, 写入文件. <br/>
+                fuse接口函数, 写文件. <br/>
                 <code>path</code> 文件的路径 <br/>
                 <code>buf</code> 待写入的内容buffer <br/>
                 <code>size</code> 写入的长度 (bytes) <br/>

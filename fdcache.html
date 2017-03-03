@@ -296,7 +296,7 @@
                                 <li>如果<code>pmeta</code>非空, newsize从<code>pmeta</code>中获取('Content-Length'字段).
                                     否则如果<code>size</code>大于0, 则newsize设置为<code>size</code>
                                 </li>
-                                <li>如果newsize < size_orgmeta, 则更新<a href="#FdEntity-size_orgmeta"><code>size_orgmeta</code></a>为newsize. </li>
+                                <li>如果newsize < size_orgmeta, 则更新<a href="#FdEntity-size_orgmeta"><code>size_orgmeta</code></a>为newsize. (为什么加前面的条件?)</li>
                                 <li>如果<code>pmeta</code>非空, 更新<a href="#FdEntity-orgmeta"><code>orgmeta</code></a>为pmeta</li>
                             </ul>
                         </li>
@@ -314,7 +314,7 @@
                                 <li>如果<a href="#PageList-Size"><code>size != pagelist.Size()</code></a>, 则重置<code>pagelist</code>的大小.
                                     <a href="#PageList-Resize"><code>pagelist.Resize(static_cast&lt;size_t&gt;(size), false)</code></a>
                                 </li>
-                                <li>如果<code>size</code>不为-1, 且与<code>st.size</code>不一致, 对缓存文件执行truncate操作.
+                                <li>如果<code>size</code>与<code>st.size</code>不一致, 对缓存文件执行truncate操作.
                                     <ul>
                                         <li><code>ftruncate(fd, static_cast&lg;off_t&gt;(size))</code></li>
                                         <li><code>fsync(fd)</code></li>
@@ -343,7 +343,7 @@
                             并且对缓存文件执行truncate操作. </li>
                     </ul>
                 </li>
-                <li>上述操作中如果改动了<a href="#FdEntity-pagelist"><code>pagelist</code></a>, 则将其重新序列化保存到stat文件.
+                <li>上述操作中如果改动了<a href="#FdEntity-pagelist"><code>pagelist</code></a>, 并且是有缓存目录的模式, 则将其重新序列化保存到stat文件.
                     <ul>
                         <li><a href="#CacheFileStat-CacheFileStat"><code>CacheFileStat cfstat(path.c_str());</code></a></li>
                         <li><a href="#PageList-Serialize"><code>pagelist.Serialize(cfstat, true);</code></a></li>
@@ -419,10 +419,10 @@
                 <li>如果文件大小比<code>start</code>要小, <a href="#PageList-Size"><code>pagelist.Size() < static_cast&lt;size_t&gt;(start)</code></a>.
                     <ul>
                         <li>扩充文件大小, <code>ftruncate(fd, static_cast&lt;size_t&gt;(start))</code></li>
-                        <li>扩展<a href="#FdEntity-pagelist">pagelist</a>的大小, <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus(static_cast&lt;off_t&gt;(pagelist.Size()), static_cast&lt;size_t&gt;(start) - pagelist.Size(), false);</code></a></li>
+                        <li>扩展分页表<a href="#FdEntity-pagelist"><code>pagelist</code></a>的大小, <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus(static_cast&lt;off_t&gt;(pagelist.Size()), static_cast&lt;size_t&gt;(start) - pagelist.Size(), false);</code></a></li>
                     </ul>
                 </li>
-                <li>如果没有开始上传(<a href="#FdEntity-upload_id"><code>0 == upload_id.length()</code></a>),
+                <li>如果没有开始multipart uploading(<a href="#FdEntity-upload_id"><code>0 == upload_id.length()</code></a>), 初始化multipart uploading
                     <ul>
                         <li>计算需要的磁盘空间, <a href="#PageList-GetTotalUnloadedPageSize"><code>size_t restsize = pagelist.GetTotalUnloadedPageSize(0, start) + size;</code></a> </li>
                         <li>如果磁盘空间足够(<a href="#FdManager-IsSafeDiskSpace"><code>FdManager::IsSafeDiskSpace(NULL, restsize)</code>)</a>,
@@ -441,7 +441,7 @@
                 <li>写文件, <code>wsize = pwrite(fd, bytes, size, start)</code></li>
                 <li><a href="#FdEntity-is_modify"><code>is_modify = true</code></a></li>
                 <li>如果<code>0 < wsize</code>, 设置写入的部分loaded标志为true. <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus(start, static_cast&lt;size_t&gt;(wsize), true)</code></a></li>
-                <li>如果<code>0 < upload_id.length()</code>, 正在multipart上传, 说明需要将新写入的内容也上传.
+                <li>如果<code>0 < upload_id.length()</code>, 正在multipart上传, 将新写入的内容也上传.
                     <ul>
                         <li><a href="#FdEntity-mp_size"><code>mp_size += static_cast&lt;size_t&gt;(wsize)</code></a></li>
                         <li>如果<a href="curl.html#S3fsCurl-multipart_size"><code>static_cast&lt;size_t&gt;(S3fsCurl::GetMultipartSize()) <= mp_size</code></a>
