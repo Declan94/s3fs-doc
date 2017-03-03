@@ -244,9 +244,9 @@
                 <li>删除stat缓存<a href="cache.html#DelStat"><code>StatCache::getStatCacheData()->DelStat(nowcache)</code></a></li>
                 <li>如果文件已经打开, 需要修改对应的FdEntity的mode
                     <ul>
-                        <li><a><code>ent = FdManager::get()->ExistOpen(path)</code></a></li>
-                        <li><a><code>ent->SetMode(mode)</code></a></li>
-                        <li><a><code>FdManager::get()->Close(ent)</code></a></li>
+                        <li><a href="fdcache.html#FdManager-ExistOpen"><code>ent = FdManager::get()->ExistOpen(path)</code></a></li>
+                        <li><a href="fdcache.html#FdEntity-SetMode"><code>ent->SetMode(mode)</code></a></li>
+                        <li><a href="fdcache.html#FdManager-Close"><code>FdManager::get()->Close(ent)</code></a></li>
                     </ul>
                 </li>
             </ul>
