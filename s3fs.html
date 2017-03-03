@@ -174,8 +174,7 @@
                 <li>检查父目录的执行权限和写入权限 <a href="#check_parent_object_access"><code>check_parent_object_access(path, W_OK | X_OK)</code></a></li>
                 <li>检查目录是否已经存在 <a><code>check_object_access(path, F_OK, NULL)</code></a></li>
                 <li><a href="#create_directory_object"><code>create_directory_object(path, mode, time(NULL), pcxt->uid, pcxt->gid)</code></a></li>
-                <li>删除path对应的Stat缓存(为了删除no obj cache?)<a href="cache.html#DelStat"><code>StatCache::getStatCacheData()->DelStat(path)</code></a>
-                </li>
+                <li>删除path对应的Stat缓存(为了删除no obj cache?)<a href="cache.html#DelStat"><code>StatCache::getStatCacheData()->DelStat(path)</code></a></li>
             </ul>
         </div>
 

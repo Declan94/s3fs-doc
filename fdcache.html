@@ -28,7 +28,7 @@
 <div class="container-fluid">
     <h2 class="top">S3fs Doc - fdcache.h/cpp</h2>
 
-    <div class="section">
+    <div class="section" id="FdManager">
         <h3>FdManager</h3>
 
         <div class="attrs">
@@ -221,7 +221,7 @@
 
     </div>
 
-    <div class="section">
+    <div class="section" id=FdEntity>
         <h3>FdEntity</h3>
 
         <div class="attrs">
@@ -528,7 +528,7 @@
                         </li>
                         <li>否则使用single request下载, <a href="curl.html#S3fsCurl-GetObjectRequest"><code>s3fscurl.GetObjectRequest(path.c_str(), fd, (*iter)->offset, need_load_size)</code></a></li>
                         <li>对于超出部分<code>over_size</code>, 用0填充文件. <a href="#FdEntity-FillFile"><code>FdEntity::FillFile(fd, 0, over_size, (*iter)->offset + need_load_size)</code></a></li>
-                        <li>设置此部分加载状态为true, <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus((*iter)->offset, static_cast&lt;off_t&gt;((*iter)->bytes), true)</code></a> </li>
+                        <li>设置此片段加载状态为true, <a href="#PageList-SetPageLoadedStatus"><code>pagelist.SetPageLoadedStatus((*iter)->offset, static_cast&lt;off_t&gt;((*iter)->bytes), true)</code></a> </li>
                     </ul>
                 </li>
             </ul>
