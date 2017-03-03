@@ -149,6 +149,27 @@
             </div>
         </div>
 
+        <div class="func" id="FdManager-Close">
+            <div class="name"><code>bool FdManager::Close(FdEntity* ent)</code></div>
+            <div class="desc">
+                关闭FdEntity
+            </div>
+            <ul class="impl">
+                <li>如果<code>ent</code>为空指针, 直接返回true</li>
+                <li>遍历<a href="#FdManager-fent"><code>fent</code></a>, 查找<code>ent</code>, 找到后,
+                    <ul>
+                        <li><a href="#FdEntity-Close"><code>ent->Close()</code></a></li>
+                        <li>如果文件被彻底关闭(引用为0导致) (<a href="#Fdentity-IsOpen"><code>!ent->IsOpen()</code></a>),
+                            <ul>
+                                <li>从<code>fent</code>中清除该元素 <code>fent.erase(iter++)</code></li>
+                                <li>为安全起见, 继续查找<code>fent</code>中是否有其它key对应该<code>ent</code>, 若存在同样清除</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
         <div class="func" id="FdManager-MakeRandomTempPath">
             <div class="name"><code>bool FdManager::MakeRandomTempPath(const char* path, string& tmppath)</code></div>
             <div class="desc">
@@ -335,6 +356,24 @@
             </ul>
         </div>
 
+        <div class="func" id="FdEntity-Close">
+            <div class="name"><code>void FdEntity::Close(void)</code></div>
+            <div class="desc">
+                关闭文件
+            </div>
+            <ul class="impl">
+                <li>如果<a href="#FdEntity-fd"><code>fd == -1</code></a>, 不用执行任何操作</li>
+                <li>修改引用数, <a href="#FdEntity-refcnt"><code>refcnt --;</code></a></li>
+                <li>如果引用为0 (<code>refcnt == 0</code>), 彻底关闭文件并重置变量.
+                    <ul>
+                        <li>如果有缓存目录, 则序列化分页表. <a href="#PageList-Serialize"><code>pagelist.Serialize(cfstat, true)</code></a></li>
+                        <li>关闭文件<code>fclose(pfile); pfile = NULL; fd = -1;</code></li>
+                        <li>如果有镜像文件, <code>unlink(mirrorpath.c_str()); mirrorpath.erase();</code></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
         <div class="func" id="FdEntity-Read">
             <div class="name"><code>ssize_t FdEntity::Read(char* bytes, off_t start, size_t size, bool force_load)</code></div>
             <div class="desc">
@@ -445,6 +484,7 @@
         </div>
 
         <div class="func" id="FdEntity-NoCachePreMultipartPost">
+            <div class="name"><code>int FdEntity::NoCachePreMultipartPost(void)</code></div>
             <div class="desc">
                 开始multipart上传请求
             </div>
@@ -454,6 +494,18 @@
                 <li><a href="curl.html#S3fsCurl-S3fsCurl"><code>S3fsCurl s3fscurl(true)</code></a></li>
                 <li><a href="curl.html#S3fsCurl-PreMultipartPostRequest"><code>s3fscurl.PreMultipartPostRequest(path.c_str(), orgmeta, upload_id, false)</code></a></li>
                 <li><a href="curl.html#S3fsCurl-DestroyCurlHandle"><code>s3fscurl.DestroyCurlHandle()</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="FdEntity-NoCacheMultipartPost">
+            <div class="name"><code>int FdEntity::NoCacheMultipartPost(int tgfd, off_t start, size_t size)</code></div>
+            <div class="desc">
+                multipart上传
+            </div>
+            <ul class="impl">
+                <li>检查multipart上传的初始化, <code>-1 != tgfd && !upload_id.empty()</code></li>
+                <li><a href="curl.html#S3fsCurl-S3fsCurl"><code>S3fsCurl s3fscurl(true)</code></a></li>
+                <li><a href="curl.html#S3fsCurl-MultipartUploadRequest"><code>s3fscurl.MultipartUploadRequest(upload_id, path.c_str(), tgfd, start, size, etaglist)</code></a></li>
             </ul>
         </div>
 
