@@ -221,7 +221,7 @@
             </ul>
         </div>
 
-        <div class="func">
+        <div class="func" id="s3fs_chmod">
             <div class="name"><code>static int s3fs_chmod(const char* path, mode_t mode)</code></div>
             <div class="desc">
                 fuse接口函数, 修改文件或目录的mode属性 <br/>
@@ -251,7 +251,55 @@
                 </li>
             </ul>
         </div>
-    </div>
+
+        <div class="func">
+            <div class="name"><code>static int s3fs_chmod_nocopy(const char* path, mode_t mode)</code></div>
+            <div class="desc">
+                该函数实现功能与<a href="#s3fs_chmod"><code>s3fs_chmod</code></a>一样.<br/>
+                用于支持一些未完全实现的Object Storage(不支持PUT(copy api)). <br/>
+                当程序执行时带有nocopyapi参数时使用此函数替代<a href="#s3fs_chmod"><code>s3fs_chmod</code></a>
+            </div>
+            <div class="remark">
+                实现与<a href="#s3fs_chmod"><code>s3fs_chmod</code></a>很接近, 只是因为不支持PUT(copy api),
+                所以在修改object meta信息时需要完整的上传object, 速度更慢且消耗网络资源更多.
+            </div>
+        </div>
+
+        <div class="func" id="s3fs_chown">
+            <div class="name"><code>static int s3fs_chown(const char* path, uid_t uid, gid_t gid)</code></div>
+            <div class="desc">
+                fuse接口函数, 修改文件或目录的属主 <br/>
+                Change the given object's owner and group to the provided values. See chown(2) for details.
+                NOTE: FUSE doesn't deal particularly well with file ownership, since it usually runs as an unprivileged user and this call is restricted to the superuser.
+                It's often easier to pretend that all files are owned by the user who mounted the filesystem, and to skip implementing this function.
+                <a href="#ref1">[1]</a>
+            </div>
+            <ul class="impl">
+                <li>检查是否挂载点根目录, 挂载点根目录不可chmod</li>
+                <li>检查对父目录的执行权限<a href="#check_parent_object_access"><code>check_parent_object_access(path, X_OK)</code></a></li>
+                <li>检查对象属主同时获得文件或目录的attributes<a href="#check_object_owner"><code>check_object_owner(path, &stbuf)</code></a></li>
+                <li><code>uid</code>或<code>gid</code>为-1说明不修改<code>uid</code>或<code>gid</code>, 将其置为原来的值</li>
+                <li>根据attributes判断是目录还是文件</li>
+                <li>对于目录做如下处理
+                    <ul>
+                        <li>检查目录的类型(不同版本存储形式不同)<a href="#chk_dir_object_type"><code>chk_dir_object_type(path, newpath, strpath, nowcache, &meta, &nDirType)</code></a></li>
+                        <li>如果是旧版本的目录, 删除之前的目录object(no obj形式除外), 再建立新形式的目录object</li>
+                    </ul>
+                </li>
+                <li>这一段处理作用未理解
+                    <pre>struct passwd* pwdata= getpwuid(uid);
+struct group* grdata = getgrgid(gid);
+if(pwdata){
+    uid = pwdata->pw_uid;
+}
+if(grdata){
+    gid = grdata->gr_gid;
+}</pre>
+                </li>
+                <li>通过接口请求修改object的meta信息<a href="#put_headers"><code>put_headers(strpath.c_str(), meta, true)</code></a></li>
+                <li>删除stat缓存<a href="cache.html#DelStat"><code>StatCache::getStatCacheData()->DelStat(nowcache)</code></a></li>
+            </ul>
+        </div>
 
     <!-- ***************************************************************************************************************************** -->
     <div class="section">
@@ -284,7 +332,7 @@
             </div>
             <ul class="impl">
                 <li>创建一个临时文件tmpfd(文件句柄)写入CreateBucketConfiguration. (us-east-1 endpoint除外) us-east-1有什么特别之处?</li>
-                <li>发起创建请求<a><code>s3fscurl.PutRequest("/", meta, tmpfd)</code></a></li>
+                <li>发起创建请求<a href="curl.html#S3fsCurl-PutRequest"><code>s3fscurl.PutRequest("/", meta, tmpfd)</code></a></li>
                 <li>如果出错400或403, 用signature v2重试一遍</li>
             </ul>
         </div>
@@ -351,7 +399,7 @@
             <ul class="impl">
                 <li>设置请求的meta信息 Content-Type: application/x-directory, 另外设置x-amz-meta-uid, x-amz-meta-gid, x-amz-meta-mode, x-amz-meta-mtime等meta属性
                 </li>
-                <li>使用AWS S3的REST接口发起Put请求上传目录Object<a><code>s3fscurl.PutRequest(tpath.c_str(), meta, -1)</code></a>
+                <li>使用AWS S3的REST接口发起Put请求上传目录Object<a href="curl.html#S3fsCurl-PutRequest"><code>s3fscurl.PutRequest(tpath.c_str(), meta, -1)</code></a>
                 </li>
             </ul>
         </div>

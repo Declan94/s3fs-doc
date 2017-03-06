@@ -32,10 +32,114 @@
         <h3>S3fsCurl</h3>
 
         <div class="attrs">
+            <div class="attr"> <span class="name"><code>static pthread_mutex_t  curl_handles_lock;</code></span></div>
+            <div class="attr"> <span class="name"><code>static pthread_mutex_t  curl_share_lock[SHARE_MUTEX_MAX];</code></span></div>
+            <div class="attr"> <span class="name"><code>static bool             is_initglobal_done;</code></span></div>
+            <div class="attr"> <span class="name"><code>static CurlHandlerPool* sCurlPool;</code></span></div>
+            <div class="attr"> <span class="name"><code>static int              sCurlPoolSize;</code></span></div>
+            <div class="attr"> <span class="name"><code>static CURLSH*          hCurlShare;</code></span></div>
+            <div class="attr"> <span class="name"><code>static bool             is_cert_check;</code></span></div>
+            <div class="attr"> <span class="name"><code>static bool             is_dns_cache;</code></span></div>
+            <div class="attr"> <span class="name"><code>static bool             is_ssl_session_cache;</code></span></div>
+            <div class="attr"> <span class="name"><code>static long             connect_timeout;</code></span></div>
+            <div class="attr"> <span class="name"><code>static time_t           readwrite_timeout;</code></span></div>
+            <div class="attr"> <span class="name" id="S3fsCurl-retries"><code>static int              retries;</code></span></div>
+            <div class="attr"> <span class="name"><code>static bool             is_public_bucket;</code></span></div>
+            <div class="attr"> <span class="name"><code>static std::string      default_acl;</code></span>             // TODO: to enum</div>
+            <div class="attr"> <span class="name"><code>static storage_class_t  storage_class;</code></span></div>
+            <div class="attr"> <span class="name"><code>static sseckeylist_t    sseckeys;</code></span></div>
+            <div class="attr"> <span class="name"><code>static std::string      ssekmsid;</code></span></div>
+            <div class="attr"> <span class="name"><code>static sse_type_t       ssetype;</code></span></div>
+            <div class="attr"> <span class="name"><code>static bool             is_content_md5;</code></span></div>
+            <div class="attr"> <span class="name"><code>static bool             is_verbose;</code></span></div>
+            <div class="attr"> <span class="name"><code>static std::string      AWSAccessKeyId;</code></span></div>
+            <div class="attr"> <span class="name"><code>static std::string      AWSSecretAccessKey;</code></span></div>
+            <div class="attr"> <span class="name"><code>static std::string      AWSAccessToken;</code></span></div>
+            <div class="attr"> <span class="name"><code>static time_t           AWSAccessTokenExpire;</code></span></div>
+            <div class="attr"> <span class="name"><code>static std::string      IAM_role;</code></span></div>
+            <div class="attr"> <span class="name"><code>static long             ssl_verify_hostname;</code></span></div>
+            <div class="attr"> <span class="name"><code>static curltime_t       curl_times;</code></span></div>
+            <div class="attr"> <span class="name"><code>static curlprogress_t   curl_progress;</code></span></div>
+            <div class="attr"> <span class="name"><code>static std::string      curl_ca_bundle;</code></span></div>
+            <div class="attr"> <span class="name"><code>static mimes_t          mimeTypes;</code></span></div>
+            <div class="attr"> <span class="name"><code>static int              max_parallel_cnt;</code></span></div>
+            <div class="attr"> <span class="name"><code>static off_t            multipart_size;</code></span></div>
+            <div class="attr"> <span class="name"><code>static bool             is_sigv4;</code></span></div>
+            <div class="attr"> <span class="name"><code>static bool             is_ua;</code></span>             // User-Agent</div>
+        </div>
+
+        <div class="attrs">
+            <div class="attr" id="S3fsCurl-hCurl"> <span class="name"><code>CURL*                hCurl;</code></span></div>
+            <div class="attr"> <span class="name"><code>REQTYPE              type;</code></span>                 // type of request</div>
+            <div class="attr"> <span class="name"><code>std::string          path;</code></span>                 // target object path</div>
+            <div class="attr"> <span class="name"><code>std::string          base_path;</code></span>            // base path (for multi curl head request)</div>
+            <div class="attr"> <span class="name"><code>std::string          saved_path;</code></span>           // saved path = cache key (for multi curl head request)</div>
+            <div class="attr"> <span class="name"><code>std::string          url;</code></span>                  // target object path(url)</div>
+            <div class="attr"> <span class="name"><code>struct curl_slist*   requestHeaders;</code></span></div>
+            <div class="attr"> <span class="name"><code>headers_t            responseHeaders;</code></span>      // header data by HeaderCallback</div>
+            <div class="attr"> <span class="name"><code>BodyData*            bodydata;</code></span>             // body data by WriteMemoryCallback</div>
+            <div class="attr"> <span class="name"><code>BodyData*            headdata;</code></span>             // header data by WriteMemoryCallback</div>
+            <div class="attr"> <span class="name"><code>long                 LastResponseCode;</code></span></div>
+            <div class="attr"> <span class="name"><code>const unsigned char* postdata;</code></span>             // use by post method and read callback function.</div>
+            <div class="attr"> <span class="name"><code>int                  postdata_remaining;</code></span>   // use by post method and read callback function.</div>
+            <div class="attr"> <span class="name"><code>filepart             partdata;</code></span>             // use by multipart upload/get object callback</div>
+            <div class="attr"> <span class="name"><code>bool                 is_use_ahbe;</code></span>          // additional header by extension</div>
+            <div class="attr"> <span class="name"><code>int                  retry_count;</code></span>          // retry count for multipart</div>
+            <div class="attr"> <span class="name"><code>FILE*                b_infile;</code></span>             // backup for retrying</div>
+            <div class="attr"> <span class="name"><code>const unsigned char* b_postdata;</code></span>           // backup for retrying</div>
+            <div class="attr"> <span class="name"><code>int                  b_postdata_remaining;</code></span> // backup for retrying</div>
+            <div class="attr"> <span class="name"><code>off_t                b_partdata_startpos;</code></span>  // backup for retrying</div>
+            <div class="attr"> <span class="name"><code>ssize_t              b_partdata_size;</code></span>      // backup for retrying</div>
+            <div class="attr"> <span class="name"><code>int                  b_ssekey_pos;</code></span>         // backup for retrying</div>
+            <div class="attr"> <span class="name"><code>std::string          b_ssevalue;</code></span>           // backup for retrying</div>
+            <div class="attr"> <span class="name"><code>sse_type_t           b_ssetype;</code></span>            // backup for retrying</div>
         </div>
 
         <div class="func" id="S3fsCurl-LookupMimeType">
-            <div class="name">string S3fsCurl::LookupMimeType(const string& name)</div>
+            <div class="name"><code>string S3fsCurl::LookupMimeType(const string& name)</code></div>
+        </div>
+
+        <div class="func" id="S3fsCurl-PutRequest">
+            <div class="name"><code>int S3fsCurl::PutRequest(const char* tpath, headers_t& meta, int fd)</code></div>
+            <div class="desc">
+                通过Put请求上传object
+            </div>
+            <ul class="impl">
+                <li>复制文件描述符, <code>fd2 = dup(fd)</code> (为什么要复制?)</li>
+                <li>获取文件属性<code>fstat(fd2, &st)</code></li>
+                <li>文件指针定位到文件头, <code>lseek(fd2, 0, SEEK_SET)</code></li>
+                <li>打开文件<code>file = fdopen(fd2, "rb")</code></li>
+                <li>创建curl句柄, <a href="#S3fsCurl-CreateCurlHandle"><code>CreateCurlHandle(true)</code></a></li>
+                <li>构造目标资源的url<a href="#S3fsCurl-MakeUrlResource"><code>MakeUrlResource(get_realpath(tpath).c_str(), resource, turl);</code></a></li>
+                <li>根据接口要求设置curl的各项参数</li>
+                <li>发起请求, <a><code>result = RequestPerform()</code></a></li>
+            </ul>
+        </div>
+
+        <div class="func" id="S3fsCurl-CreateCurlHandle">
+            <div class="name"><code>bool S3fsCurl::CreateCurlHandle(bool force)</code></div>
+            <div class="desc">
+                创建curl handler <a href="#S3fsCurl-hCurl"><code>hCurl</code></a> <br/>
+                <code>force</code>为true时若 <code>hCurl</code>已存在则销毁重建.
+            </div>
+        </div>
+
+        <div class="func" id="S3fsCurl-MakeUrlResource">
+            <div class="name"><code>bool MakeUrlResource(const char* realpath, string& resourcepath, string& url)</code></div>
+            <div class="desc">
+                构造资源路径.
+            </div>
+            <ul>
+                <li><code>resourcepath = urlEncode(service_path + bucket + realpath);</code></li>
+                <li><code>url          = host + resourcepath;</code></li>
+            </ul>
+        </div>
+
+        <div class="func" id="S3fsCurl-RequestPerform">
+            <div class="desc">
+                执行请求, 最多重试<a href="#S3fsCurl-retries"><code>S3fsCurl::retries</code></a>次. <br/>
+                根据请求结果输出调试信息, 返回结果.
+            </div>
         </div>
 
     </div>
@@ -51,6 +155,7 @@
             <div class="attr"><div class="name"><code>size_t bufsize;</code></div></div>
         </div>
     </div>
+
 
 </div>
 
